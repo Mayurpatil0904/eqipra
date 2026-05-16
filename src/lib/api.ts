@@ -1,0 +1,138 @@
+// src/lib/api.ts — typed API client for Equipra backend
+const BASE = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:5000/api";
+
+// ── Token helpers ─────────────────────────────────────────────
+export const token = {
+  get:   ()          => localStorage.getItem("eq_token") ?? "",
+  set:   (t: string) => localStorage.setItem("eq_token", t),
+  clear: ()          => localStorage.removeItem("eq_token"),
+};
+
+// ── Core fetch wrapper ────────────────────────────────────────
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const t = token.get();
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+  return json.data as T;
+}
+
+async function reqForm<T>(method: string, path: string, form: FormData): Promise<T> {
+  const t = token.get();
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: t ? { Authorization: `Bearer ${t}` } : {},
+    body: form,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+  return json.data as T;
+}
+
+const get    = <T>(p: string)              => req<T>("GET",    p);
+const post   = <T>(p: string, b: unknown)  => req<T>("POST",   p, b);
+const patch  = <T>(p: string, b?: unknown) => req<T>("PATCH",  p, b);
+const put    = <T>(p: string, b: unknown)  => req<T>("PUT",    p, b);
+const del    = <T>(p: string)              => req<T>("DELETE", p);
+
+// ── Auth ──────────────────────────────────────────────────────
+export const authApi = {
+  login: (d: { enrollmentId: string; password: string; collegeName: string; role: string }) =>
+    post<{ token: string; user: any }>("/auth/login", d),
+  me: () => get<any>("/auth/me"),
+  changePassword: (d: { currentPassword: string; newPassword: string }) =>
+    put<any>("/auth/change-password", d),
+};
+
+// ── Equipment ─────────────────────────────────────────────────
+export const equipmentApi = {
+  list: (p?: { category?: string; status?: string; q?: string }) => {
+    const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
+    return get<any[]>(`/equipment${qs}`);
+  },
+  get:        (slug: string)         => get<any>(`/equipment/${slug}`),
+  categories: ()                     => get<string[]>("/equipment/categories"),
+  create:     (d: any)               => post<any>("/equipment", d),
+  update:     (slug: string, d: any) => patch<any>(`/equipment/${slug}`, d),
+  remove:     (slug: string)         => del<any>(`/equipment/${slug}`),
+};
+
+// ── Requests ──────────────────────────────────────────────────
+export const requestsApi = {
+  list: (p?: { status?: string }) => {
+    const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
+    return get<any[]>(`/requests${qs}`);
+  },
+  get:             (id: string)                               => get<any>(`/requests/${id}`),
+  create:          (d: any)                                   => post<any>("/requests", d),
+  facultyDecision: (id: string, approved: boolean)           => post<any>(`/requests/${id}/faculty-decision`, { approved }),
+  labDecision:     (id: string, approved: boolean, msg: string) => post<any>(`/requests/${id}/lab-decision`, { approved, message: msg }),
+  addMessage:      (id: string, text: string)                 => post<any>(`/requests/${id}/messages`, { text }),
+};
+
+// ── Teams ─────────────────────────────────────────────────────
+export const teamsApi = {
+  list:          ()                                        => get<any[]>("/teams"),
+  get:           (code: string)                            => get<any>(`/teams/${code}`),
+  create:        (d: { name: string; project: string })    => post<any>("/teams", d),
+  uploadMembers: (code: string, file: File) => {
+    const f = new FormData(); f.append("file", file);
+    return reqForm<any>("POST", `/teams/${code}/upload-members`, f);
+  },
+  deactivate: (code: string) => patch<any>(`/teams/${code}/deactivate`),
+};
+
+// ── Fault Scans ───────────────────────────────────────────────
+export const faultScanApi = {
+  list:   (slug?: string) => get<any[]>(`/fault-scans${slug ? `?equipmentSlug=${slug}` : ""}`),
+  create: (d: { equipmentSlug: string; result: "ok" | "fault"; notes?: string }) =>
+    post<any>("/fault-scans", d),
+};
+
+// ── Feedback ──────────────────────────────────────────────────
+export const feedbackApi = {
+  submit:   (d: any)       => post<any>("/feedback", d),
+  list:     (p?: any)      => get<any[]>(`/feedback${p ? "?" + new URLSearchParams(p).toString() : ""}`),
+  markRead: (id: string)   => patch<any>(`/feedback/${id}/read`),
+};
+
+// ── Messages ──────────────────────────────────────────────────
+export const messagesApi = {
+  threads:   ()                               => get<any[]>("/messages/threads"),
+  getThread: (partnerId: string)              => get<any>(`/messages/threads/${partnerId}`),
+  send:      (partnerId: string, text: string) => post<any>(`/messages/threads/${partnerId}`, { text }),
+};
+
+// ── Notifications ─────────────────────────────────────────────
+export const notificationsApi = {
+  list:        ()           => get<any[]>("/notifications"),
+  markRead:    (id: string) => patch<any>(`/notifications/${id}/read`),
+  markAllRead: ()           => patch<any>("/notifications/read-all"),
+};
+
+// ── Admin ─────────────────────────────────────────────────────
+export const adminApi = {
+  stats:             ()                         => get<any>("/admin/stats"),
+  users:             (p?: { role?: string; q?: string }) => {
+    const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
+    return get<any[]>(`/admin/users${qs}`);
+  },
+  createUser:        (d: any)                   => post<any>("/admin/users", d),
+  updateUser:        (id: string, d: any)       => patch<any>(`/admin/users/${id}`, d),
+  deactivateUser:    (id: string)               => patch<any>(`/admin/users/${id}/deactivate`),
+  resetUserPassword: (id: string, newPassword: string) =>
+    patch<any>(`/admin/users/${id}/reset-password`, { newPassword }),
+  colleges:          ()                         => get<any[]>("/admin/colleges"),
+};
+
+// ── Professors ────────────────────────────────────────────────
+export const professorsApi = {
+  list: () => get<{ id: string; name: string; enrollmentId: string; department: string }[]>("/professors"),
+};

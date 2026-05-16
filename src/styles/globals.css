@@ -1,0 +1,306 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================
+   DESIGN TOKENS — Light Mode
+   ============================================= */
+@layer base {
+  :root {
+    --background: 40 20% 97%;
+    --foreground: 25 15% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 15% 10%;
+
+    --muted: 35 15% 93%;
+    --muted-foreground: 25 10% 45%;
+
+    --border: 35 12% 82%;
+    --input: 35 12% 82%;
+    --ring: 220 70% 50%;
+
+    --primary: 220 70% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 35 15% 93%;
+    --secondary-foreground: 25 15% 15%;
+
+    --accent: 220 65% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status colours */
+    --status-available: 145 60% 35%;
+    --status-issued: 35 85% 45%;
+    --status-pending: 200 75% 45%;
+    --status-fault: 0 70% 48%;
+    --status-maintenance: 280 55% 45%;
+
+    --radius: 0.75rem;
+
+    /* UPDATED DARKER HERO GRADIENT */
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(224 71% 12%),
+      hsl(220 70% 22%),
+      hsl(214 90% 35%)
+    );
+  }
+
+  /* =============================================
+     DESIGN TOKENS — Dark Mode
+     ============================================= */
+  .dark {
+    --background: 222 18% 10%;
+    --foreground: 210 20% 92%;
+
+    --card: 222 18% 14%;
+    --card-foreground: 210 20% 92%;
+
+    --muted: 222 14% 18%;
+    --muted-foreground: 215 15% 55%;
+
+    --border: 222 14% 22%;
+    --input: 222 14% 22%;
+    --ring: 220 70% 60%;
+
+    --primary: 220 70% 60%;
+    --primary-foreground: 222 18% 10%;
+
+    --secondary: 222 14% 18%;
+    --secondary-foreground: 210 20% 80%;
+
+    --accent: 220 65% 58%;
+    --accent-foreground: 222 18% 10%;
+
+    --status-available: 145 55% 48%;
+    --status-issued: 35 80% 55%;
+    --status-pending: 200 70% 55%;
+    --status-fault: 0 65% 58%;
+    --status-maintenance: 280 50% 58%;
+
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(224 71% 10%),
+      hsl(220 70% 18%),
+      hsl(214 90% 28%)
+    );
+  }
+}
+
+/* =============================================
+   BASE RESETS
+   ============================================= */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Syne', system-ui, sans-serif;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: 'DM Mono', monospace;
+  }
+}
+
+/* =============================================
+   UTILITY CLASSES
+   ============================================= */
+@layer utilities {
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .shadow-card {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .shadow-card {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.3),
+      0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+
+  /* Line clamp helpers */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Animate fade-in stagger */
+  .stagger-1 {
+    animation-delay: 0.05s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.15s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.2s;
+  }
+
+  .stagger-5 {
+    animation-delay: 0.25s;
+  }
+}
+
+/* =============================================
+   COMPONENT OVERRIDES
+   ============================================= */
+@layer components {
+
+  /* Login split-screen */
+  .login-panel-left {
+    position: relative;
+    background: var(--gradient-hero);
+  }
+
+  /* Hero pattern */
+  .hero-dot-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23ffffff' fill-opacity='0.08'/%3E%3C/svg%3E");
+  }
+
+  /* Status pill */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border;
+  }
+
+  /* Workflow step */
+  .workflow-step {
+    @apply flex items-center gap-2 text-xs font-semibold text-muted-foreground;
+  }
+
+  .workflow-step.active {
+    @apply text-primary;
+  }
+
+  .workflow-step.done {
+    @apply text-status-available;
+  }
+
+  .workflow-step-circle {
+    @apply w-7 h-7 rounded-full border-2 border-border bg-card flex items-center justify-center text-xs font-bold;
+  }
+
+  .workflow-step.active .workflow-step-circle {
+    @apply border-primary bg-primary/10 text-primary;
+  }
+
+  .workflow-step.done .workflow-step-circle {
+    @apply border-status-available bg-status-available text-white;
+  }
+
+  .workflow-step-line {
+    @apply flex-1 h-0.5 bg-border mx-1;
+  }
+
+  .workflow-step-line.done {
+    @apply bg-status-available;
+  }
+
+  /* Message bubble */
+  .msg-bubble-sent {
+    @apply bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed self-end max-w-[72%];
+  }
+
+  .msg-bubble-recv {
+    @apply bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed self-start max-w-[72%];
+  }
+
+  /* Team badge */
+  .team-id-badge {
+    @apply inline-flex items-center gap-1.5 bg-accent/10 border border-accent/30 text-accent px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-widest;
+  }
+
+  /* Floating feedback button */
+  .feedback-float {
+    @apply fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-primary text-primary-foreground rounded-full px-5 py-3 text-sm font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200;
+  }
+
+  /* Admin / Faculty table */
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table thead tr {
+    @apply bg-muted/60 border-b border-border;
+  }
+
+  .data-table th {
+    @apply px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider;
+  }
+
+  .data-table td {
+    @apply px-4 py-3 text-foreground border-b border-border/60;
+  }
+
+  .data-table tbody tr:last-child td {
+    @apply border-0;
+  }
+
+  .data-table tbody tr:hover td {
+    @apply bg-muted/30;
+  }
+
+  /* Progress bar */
+  .progress-track {
+    @apply h-1.5 rounded-full bg-muted overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full bg-primary transition-all duration-700;
+  }
+
+  /* Scan ring */
+  .scan-ring {
+    @apply w-28 h-28 rounded-full border-4 border-primary/30 mx-auto flex items-center justify-center text-5xl relative;
+  }
+
+  .scan-ring::before {
+    content: '';
+    @apply absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-20;
+  }
+}
