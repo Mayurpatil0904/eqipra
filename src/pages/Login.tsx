@@ -68,6 +68,7 @@ export default function Login() {
     useState(false);
 
   const handleLogin = async () => {
+
     if (!college) {
       toast.error(
         "Please select your college."
@@ -92,11 +93,14 @@ export default function Login() {
     setSubmitting(true);
 
     try {
+
       await login(
         enrollmentId.trim(),
         password,
         college,
-        selectedRole
+
+        // ✅ FIXED HERE
+        selectedRole.toUpperCase()
       );
 
       toast.success(
@@ -110,13 +114,18 @@ export default function Login() {
           ? "/faculty"
           : "/"
       );
+
     } catch (err: any) {
+
       toast.error(
         err.message ??
-          "Login failed. Check your credentials."
+        "Login failed. Check your credentials."
       );
+
     } finally {
+
       setSubmitting(false);
+
     }
   };
 
@@ -311,6 +320,7 @@ export default function Login() {
                   }) => (
                     <button
                       key={role}
+                      type="button"
                       onClick={() =>
                         setSelectedRole(
                           role
@@ -353,53 +363,6 @@ export default function Login() {
                 "Sign In →"
               )}
             </button>
-          </div>
-
-          {/* DEMO */}
-          <div className="mt-8 p-4 bg-muted/60 rounded-xl border border-border">
-
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Demo Credentials
-            </p>
-
-            <div className="space-y-2 text-xs">
-
-              <div className="flex items-center justify-between">
-
-                <span className="px-2 py-0.5 rounded font-semibold bg-status-available/15 text-status-available">
-                  student
-                </span>
-
-                <span className="font-mono text-muted-foreground">
-                  PU-STU-001 /
-                  student123
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span className="px-2 py-0.5 rounded font-semibold bg-status-pending/15 text-status-pending">
-                  faculty
-                </span>
-
-                <span className="font-mono text-muted-foreground">
-                  PU-FAC-001 /
-                  faculty123
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span className="px-2 py-0.5 rounded font-semibold bg-status-maintenance/15 text-status-maintenance">
-                  admin
-                </span>
-
-                <span className="font-mono text-muted-foreground">
-                  PU-ADM-001 /
-                  admin123
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
