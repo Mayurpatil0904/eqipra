@@ -1,5 +1,5 @@
 // src/lib/api.ts — typed API client for Equipra backend
-const BASE = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:5000/api";
+const BASE = "https://backend-eqipra.onrender.com/api";
 
 // ── Token helpers ─────────────────────────────────────────────
 export const token = {
