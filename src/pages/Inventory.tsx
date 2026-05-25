@@ -1,19 +1,44 @@
-import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, Loader2 } from "lucide-react";
 import { HardwareCard } from "@/components/HardwareCard";
-import { hardwareData } from "@/data/hardwareData";
+import { equipmentApi } from "@/lib/api";
 
-const CATEGORIES = ["All", "Radar Sensors", "Microcontrollers", "Programmable Logic", "Wireless Modules", "RF Equipment", "Data Acquisition", "Single Board Computers", "Sensors"];
-const STATUSES   = ["All", "Available", "Issued", "Reserved", "Maintenance"];
+const STATUSES = ["All", "Available", "Issued", "Reserved", "Maintenance"];
 
 export default function Inventory() {
-  const [search,   setSearch]   = useState("");
-  const [category, setCategory] = useState("All");
-  const [status,   setStatus]   = useState("All");
+  const [search,    setSearch]    = useState("");
+  const [category,  setCategory]  = useState("All");
+  const [status,    setStatus]    = useState("All");
+  const [items,     setItems]     = useState<any[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  const filtered = hardwareData.filter(item => {
+  // Load equipment from backend on mount
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [equip, cats] = await Promise.all([
+          equipmentApi.list(),
+          equipmentApi.categories(),
+        ]);
+        setItems(equip);
+        setCategories(["All", ...cats]);
+      } catch (err) {
+        console.error("Failed to load equipment:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const filtered = items.filter(item => {
     const q = search.toLowerCase();
-    const matchSearch   = !q || item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+    const matchSearch   = !q
+      || item.name?.toLowerCase().includes(q)
+      || item.category?.toLowerCase().includes(q)
+      || item.description?.toLowerCase().includes(q);
     const matchCategory = category === "All" || item.category === category;
     const matchStatus   = status   === "All" || item.availabilityStatus === status.toLowerCase();
     return matchSearch && matchCategory && matchStatus;
@@ -52,7 +77,7 @@ export default function Inventory() {
                 onChange={e => setCategory(e.target.value)}
                 className="pl-8 pr-8 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none cursor-pointer min-w-[160px]"
               >
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                {categories.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <select
@@ -67,28 +92,42 @@ export default function Inventory() {
       </div>
 
       <div className="container py-8">
-        <p className="text-sm text-muted-foreground mb-5">
-          Showing {filtered.length} of {hardwareData.length} items
-        </p>
-
-        {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtered.map((item, i) => (
-              <div key={item.id} className="animate-fade-in" style={{ animationDelay: `${i * 0.04}s` }}>
-                <HardwareCard item={item} />
-              </div>
-            ))}
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg mb-4">No hardware items match your filters.</p>
-            <button
-              onClick={() => { setSearch(""); setCategory("All"); setStatus("All"); }}
-              className="text-primary text-sm font-medium hover:underline"
-            >
-              Clear all filters
-            </button>
-          </div>
+          <>
+            <p className="text-sm text-muted-foreground mb-5">
+              Showing {filtered.length} of {items.length} items
+            </p>
+
+            {filtered.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {filtered.map((item, i) => (
+                  <div key={item.id ?? item.slug} className="animate-fade-in" style={{ animationDelay: `${i * 0.04}s` }}>
+                    <HardwareCard item={item} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground text-lg mb-4">
+                  {items.length === 0
+                    ? "No equipment has been added to the inventory yet."
+                    : "No hardware items match your filters."}
+                </p>
+                {items.length > 0 && (
+                  <button
+                    onClick={() => { setSearch(""); setCategory("All"); setStatus("All"); }}
+                    className="text-primary text-sm font-medium hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
