@@ -1,24 +1,24 @@
 import { Link } from "react-router-dom";
 import { MapPin, Calendar, ArrowRight } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
-import type { HardwareItem } from "@/types";
 import { useApp } from "@/context/AppContext";
-import { cn } from "@/lib/utils";
 
 interface Props {
-  item: HardwareItem;
+  item: any; // accepts both hardwareData shape and DB shape
 }
 
 export function HardwareCard({ item }: Props) {
   const { role } = useApp();
+  // DB uses `slug` as the URL key; legacy hardwareData uses `id`
+  const urlKey = item.slug ?? item.id;
 
   return (
-    <Link to={`/hardware/${item.id}`} className="group block h-full">
+    <Link to={`/hardware/${urlKey}`} className="group block h-full">
       <div className="h-full flex flex-col bg-card rounded-lg border border-border/60 overflow-hidden shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/40">
 
         {/* Emoji thumbnail */}
         <div className="h-44 flex items-center justify-center bg-muted/30 text-6xl transition-transform duration-300 group-hover:scale-105 select-none">
-          {item.emoji}
+          {item.emoji ?? "📦"}
         </div>
 
         <div className="flex flex-col flex-1 p-5 gap-3">
@@ -33,7 +33,7 @@ export function HardwareCard({ item }: Props) {
 
           <div className="flex flex-wrap gap-1.5">
             <StatusBadge type="availability" status={item.availabilityStatus} />
-            <StatusBadge type="fault" status={item.faultScanStatus} />
+            {item.faultScanStatus && <StatusBadge type="fault" status={item.faultScanStatus} />}
           </div>
 
           <div className="space-y-1.5 text-sm text-muted-foreground">
@@ -54,11 +54,24 @@ export function HardwareCard({ item }: Props) {
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground line-clamp-2 border-t border-border/50 pt-3 mt-auto">
-            {item.conditionLog}
-          </p>
+          {item.conditionLog && (
+            <p className="text-xs text-muted-foreground line-clamp-2 border-t border-border/50 pt-3 mt-auto">
+              {item.conditionLog}
+            </p>
+          )}
 
-          <div className="flex items-center text-xs font-medium text-primary group-hover:text-accent transition-colors gap-1">
+          {/* Issue button shown directly on card for students */}
+          {role === "student" && item.availabilityStatus === "available" && (
+            <Link
+              to={`/request?item=${urlKey}`}
+              onClick={e => e.stopPropagation()}
+              className="mt-1 inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Issue Equipment →
+            </Link>
+          )}
+
+          <div className="flex items-center text-xs font-medium text-primary group-hover:text-accent transition-colors gap-1 mt-auto">
             View Details
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
           </div>
