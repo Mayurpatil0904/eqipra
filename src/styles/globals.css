@@ -304,3 +304,265 @@
     @apply absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-20;
   }
 }
+
+/* =============================================
+   PREMIUM VISUAL ENHANCEMENTS
+   ============================================= */
+
+/* Animated Hero Gradient */
+@layer utilities {
+  .gradient-hero-animated {
+    background: linear-gradient(
+      135deg,
+      hsl(224 71% 12%),
+      hsl(220 70% 22%),
+      hsl(260 60% 20%),
+      hsl(214 90% 35%),
+      hsl(220 70% 22%)
+    );
+    background-size: 300% 300%;
+    animation: gradient-shift 12s ease-in-out infinite;
+  }
+
+  .dark .gradient-hero-animated {
+    background: linear-gradient(
+      135deg,
+      hsl(224 71% 8%),
+      hsl(220 70% 14%),
+      hsl(260 55% 15%),
+      hsl(214 90% 22%),
+      hsl(220 70% 14%)
+    );
+    background-size: 300% 300%;
+    animation: gradient-shift 12s ease-in-out infinite;
+  }
+}
+
+/* Floating Orbs */
+@layer components {
+  .hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .hero-orb-1 {
+    width: 300px;
+    height: 300px;
+    background: hsl(220 80% 60%);
+    top: -50px;
+    right: 10%;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .hero-orb-2 {
+    width: 200px;
+    height: 200px;
+    background: hsl(280 70% 55%);
+    bottom: -30px;
+    left: 15%;
+    animation: float 10s ease-in-out infinite 2s;
+  }
+
+  .hero-orb-3 {
+    width: 150px;
+    height: 150px;
+    background: hsl(190 80% 50%);
+    top: 30%;
+    left: 5%;
+    animation: float 7s ease-in-out infinite 1s;
+  }
+}
+
+/* Glass Card Effect */
+@layer components {
+  .glass-card {
+    background: hsla(0, 0%, 100%, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsla(0, 0%, 100%, 0.2);
+  }
+
+  .dark .glass-card {
+    background: hsla(222, 18%, 14%, 0.7);
+    border-color: hsla(222, 14%, 30%, 0.3);
+  }
+}
+
+/* Card Glow Hover */
+@layer components {
+  .card-hover-glow {
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .card-hover-glow::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.3), hsl(var(--accent) / 0.3));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .card-hover-glow:hover::before {
+    opacity: 1;
+  }
+
+  .card-hover-glow:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 8px 30px hsl(var(--primary) / 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Enhanced Stat Card */
+@layer components {
+  .stat-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .stat-card:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Premium Button Shine */
+@layer components {
+  .btn-premium {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .btn-premium::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsla(0, 0%, 100%, 0.15),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  .btn-premium:hover::before {
+    left: 100%;
+  }
+}
+
+/* Gradient Text */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #fff 0%, hsla(210, 80%, 80%, 0.9) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Enhanced Table Rows */
+@layer components {
+  .data-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  .data-table tbody tr:nth-child(even) td {
+    @apply bg-muted/15;
+  }
+}
+
+/* Shimmer Loading */
+@layer utilities {
+  .shimmer-bg {
+    background: linear-gradient(90deg, transparent 25%, hsl(var(--muted) / 0.5) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+/* Gradient Divider */
+@layer utilities {
+  .gradient-divider {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.4), transparent);
+  }
+}
+
+/* Enhanced Input Focus */
+@layer base {
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: hsl(var(--primary) / 0.5) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1), 0 1px 2px rgba(0,0,0,0.05) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+}
+
+/* Header Gradient Border */
+@layer components {
+  .header-gradient-border {
+    position: relative;
+  }
+
+  .header-gradient-border::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.3),
+      hsl(var(--accent) / 0.3),
+      transparent
+    );
+  }
+}
+
+/* Feature Card Icon Glow */
+@layer components {
+  .icon-glow {
+    transition: box-shadow 0.3s ease;
+  }
+
+  .group:hover .icon-glow {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+}

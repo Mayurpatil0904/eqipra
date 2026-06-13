@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -12,7 +12,9 @@ import {
 
 import { useApp } from "@/context/AppContext";
 
-import { colleges } from "@/data/hardwareData";
+import { colleges as fallbackColleges } from "@/data/hardwareData";
+
+import { authApi } from "@/lib/api";
 
 import { toast } from "sonner";
 
@@ -66,6 +68,18 @@ export default function Login() {
 
   const [submitting, setSubmitting] =
     useState(false);
+
+  const [collegeList, setCollegeList] =
+    useState<string[]>(fallbackColleges);
+
+  useEffect(() => {
+    authApi.colleges()
+      .then((data) => {
+        const names = data.map((c: any) => c.name).filter(Boolean);
+        if (names.length > 0) setCollegeList(names);
+      })
+      .catch(() => {}); // fallback to hardcoded list
+  }, []);
 
   const handleLogin = async () => {
 
@@ -254,7 +268,7 @@ export default function Login() {
                   — Choose College —
                 </option>
 
-                {colleges.map((c) => (
+                {collegeList.map((c) => (
                   <option key={c}>
                     {c}
                   </option>

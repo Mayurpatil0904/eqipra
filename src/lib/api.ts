@@ -1,5 +1,7 @@
 // src/lib/api.ts — typed API client for Equipra backend
-const BASE = "https://backend-eqipra.onrender.com/api";
+const BASE =
+  (import.meta as any).env?.VITE_API_URL ??
+  "http://localhost:5000/api";
 
 // ── Token helpers ─────────────────────────────────────────────
 export const token = {
@@ -49,6 +51,7 @@ export const authApi = {
   me: () => get<any>("/auth/me"),
   changePassword: (d: { currentPassword: string; newPassword: string }) =>
     put<any>("/auth/change-password", d),
+  colleges: () => get<any[]>("/auth/colleges"),
 };
 
 // ── Equipment ─────────────────────────────────────────────────
@@ -62,6 +65,7 @@ export const equipmentApi = {
   create:     (d: any)               => post<any>("/equipment", d),
   update:     (slug: string, d: any) => patch<any>(`/equipment/${slug}`, d),
   remove:     (slug: string)         => del<any>(`/equipment/${slug}`),
+  fullTimeline: (idOrSlug: string)   => get<any>(`/equipment/${idOrSlug}/full-timeline`),
 };
 
 // ── Requests ──────────────────────────────────────────────────
@@ -70,13 +74,53 @@ export const requestsApi = {
     const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
     return get<any[]>(`/requests${qs}`);
   },
-  get:             (id: string)                               => get<any>(`/requests/${id}`),
-  create:          (d: any)                                   => post<any>("/requests", d),
-  facultyDecision: (id: string, approved: boolean)           => post<any>(`/requests/${id}/faculty-decision`, { approved }),
-  labDecision:     (id: string, approved: boolean, msg: string) => post<any>(`/requests/${id}/lab-decision`, { approved, message: msg }),
-  addMessage:      (id: string, text: string)                 => post<any>(`/requests/${id}/messages`, { text }),
-};
 
+  get: (id: string) =>
+    get<any>(`/requests/${id}`),
+
+  create: (d: any) =>
+    post<any>("/requests", d),
+
+  facultyDecision: (
+    id: string,
+    approved: boolean
+  ) =>
+    post<any>(
+      `/requests/${id}/faculty-decision`,
+      { approved }
+    ),
+
+  labDecision: (
+    id: string,
+    approved: boolean,
+    msg: string
+  ) =>
+    post<any>(
+      `/requests/${id}/lab-decision`,
+      {
+        approved,
+        message: msg,
+      }
+    ),
+
+  markReturned: (id: string, data: { conditionRating: number; damageNotes?: string; damagePercent?: number }) =>
+    patch<any>(`/requests/${id}/return`, data),
+
+  getByQr: (token: string) =>
+    get<any>(`/requests/scan/${token}`),
+
+  clearInspection: (slug: string, action: string) =>
+    patch<any>(`/requests/equipment/${slug}/clear-inspection`, { action }),
+
+  addMessage: (
+    id: string,
+    text: string
+  ) =>
+    post<any>(
+      `/requests/${id}/messages`,
+      { text }
+    ),
+};
 // ── Teams ─────────────────────────────────────────────────────
 export const teamsApi = {
   list:          ()                                        => get<any[]>("/teams"),
@@ -124,12 +168,19 @@ export const adminApi = {
     const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
     return get<any[]>(`/admin/users${qs}`);
   },
+  
   createUser:        (d: any)                   => post<any>("/admin/users", d),
   updateUser:        (id: string, d: any)       => patch<any>(`/admin/users/${id}`, d),
   deactivateUser:    (id: string)               => patch<any>(`/admin/users/${id}/deactivate`),
   resetUserPassword: (id: string, newPassword: string) =>
     patch<any>(`/admin/users/${id}/reset-password`, { newPassword }),
   colleges:          ()                         => get<any[]>("/admin/colleges"),
+  createCollege:     (d: { name: string })      => post<any>("/admin/colleges", d),
+  updateCollege: (id: string, d: any) =>
+  patch<any>(`/admin/colleges/${id}`, d),
+
+  deleteCollege: (id: string) =>
+  del<any>(`/admin/colleges/${id}`),
 };
 
 // ── Professors ────────────────────────────────────────────────

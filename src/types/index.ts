@@ -7,10 +7,11 @@ export interface User {
   role: NonNullable<Role>;
   department: string;
   college: string;
+  canManageAdmins?: boolean;
 }
 
 // ─── Hardware ──────────────────────────────────────────────────
-export type AvailabilityStatus = "available" | "issued" | "reserved" | "maintenance";
+export type AvailabilityStatus = "available" | "issued" | "reserved" | "maintenance" | "inspection";
 export type FaultScanStatus =
   | "not-scanned"
   | "scanned-ok-before"
@@ -74,6 +75,11 @@ export interface EquipmentRequest {
   studentName: string;
   messages: RequestMessage[];
   createdAt: string;
+  requestCode?: string;
+  qrToken?: string;
+  equipment?: { slug?: string; name?: string; emoji?: string; labLocation?: string };
+  student?: { name?: string; enrollmentId?: string; email?: string };
+  faculty?: { name?: string };
 }
 
 // ─── Teams ────────────────────────────────────────────────────

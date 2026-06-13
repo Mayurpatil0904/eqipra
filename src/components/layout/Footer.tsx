@@ -3,7 +3,8 @@ import { Cpu } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-muted/30 py-8 mt-auto">
+    <footer className="bg-muted/30 py-8 mt-auto relative">
+      <div className="gradient-divider absolute top-0 left-0 right-0" />
       <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Cpu className="h-4 w-4" />

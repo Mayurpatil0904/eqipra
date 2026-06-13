@@ -27,12 +27,16 @@ export default function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="relative gradient-hero hero-dot-pattern text-white py-24 overflow-hidden">
+      <section className="relative gradient-hero gradient-hero-animated hero-dot-pattern text-white py-24 overflow-hidden">
+        {/* Floating orbs */}
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
         <div className="container relative z-10 text-center">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-xs font-medium mb-6">
             🎓 Academic Equipment Management Platform
           </div>
-          <h1 className="font-display text-5xl md:text-6xl font-extrabold mb-5 leading-tight">
+          <h1 className="font-display text-5xl md:text-6xl font-extrabold mb-5 leading-tight text-gradient">
             Equipra
           </h1>
           <p className="text-white/80 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
@@ -90,7 +94,7 @@ export default function Home() {
       <div className="bg-card border-b border-border">
         <div className="container grid grid-cols-2 md:grid-cols-4 divide-x divide-border py-0">
           {stats.map(s => (
-            <div key={s.label} className="text-center py-6">
+            <div key={s.label} className="text-center py-6 stat-card">
               <div className="font-display text-3xl font-bold text-primary">{s.value}</div>
               <div className="text-xs text-muted-foreground font-medium mt-1">{s.label}</div>
             </div>
@@ -112,10 +116,10 @@ export default function Home() {
               <Link
                 key={title}
                 to={to}
-                className="group bg-card border border-border/60 rounded-xl p-6 hover:border-primary/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 animate-fade-in"
+                className="group bg-card border border-border/60 rounded-xl p-6 hover:border-primary/40 transition-all duration-300 animate-fade-in card-hover-glow"
                 style={{ animationDelay: `${i * 0.06}s` }}
               >
-                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors icon-glow">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="font-semibold text-foreground mb-2">{title}</h3>

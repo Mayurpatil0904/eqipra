@@ -1,3 +1,6 @@
+// frontend/src/context/AppContext.tsx
+// UPDATED — canManageAdmins added to User object on login and me()
+
 import {
   createContext, useContext, useState, useEffect,
   useCallback, type ReactNode,
@@ -44,6 +47,11 @@ function mapRequest(r: any): EquipmentRequest {
       senderName: m.sentBy?.name,
     })),
     createdAt: r.createdAt?.slice(0,10) ?? "",
+    requestCode: r.requestCode,
+    qrToken: r.qrToken,
+    equipment: r.equipment,
+    student: r.student,
+    faculty: r.faculty,
   };
 }
 
@@ -70,6 +78,7 @@ function mapThreads(data: any[], myId: string): MessageThread[] {
   return data.map((t: any) => ({
     id: t.partner?.id ?? "", participantId: t.partner?.id ?? "",
     participantName: t.partner?.name ?? "", participantRole: t.partner?.role ?? "",
+    unreadCount: t.unreadCount ?? 0,
     messages: t.latestMessage ? [{
       from: t.latestMessage.senderId === myId ? "me" as const : "lab" as const,
       text: t.latestMessage.text,
@@ -99,7 +108,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!t) { setLoading(false); return; }
     authApi.me()
       .then(u => {
-        setUser({ id: u.id, name: u.name, role: u.role.toLowerCase() as any, department: u.department, college: u.college });
+        setUser({
+          id:              u.id,
+          name:            u.name,
+          role:            u.role.toLowerCase() as any,
+          department:      u.department,
+          college:         u.college,
+          canManageAdmins: u.canManageAdmins ?? false, // ✅
+        });
         setRole(u.role.toLowerCase() as Role);
       })
       .catch(() => token.clear())
@@ -109,8 +125,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = async (enrollmentId: string, password: string, collegeName: string, roleStr: string) => {
     const { token: jwt, user: u } = await authApi.login({ enrollmentId, password, collegeName, role: roleStr.toUpperCase() });
     token.set(jwt);
-    const mapped: User = { id: u.id, name: u.name, role: u.role.toLowerCase() as any, department: u.department, college: u.college };
-    setUser(mapped); setRole(mapped.role);
+    const mapped: User = {
+      id:              u.id,
+      name:            u.name,
+      role:            u.role.toLowerCase() as any,
+      department:      u.department,
+      college:         u.college,
+      canManageAdmins: u.canManageAdmins ?? false, // ✅
+    };
+    setUser(mapped);
+    setRole(mapped.role);
   };
 
   const logout = () => {
@@ -128,9 +152,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [role]);
   useEffect(() => { if (role) fetchRequests(); }, [role, fetchRequests]);
 
-  const addRequest     = async (d: any) => { await requestsApi.create(d); await fetchRequests(); };
-  const updateRequestStatus = async () => { await fetchRequests(); };
-  const addMessageToRequest = async () => { await fetchRequests(); };
+  const addRequest          = async (d: any)                             => { await requestsApi.create(d); await fetchRequests(); };
+  const updateRequestStatus = async (_id: string, _status: RequestStatus) => { await fetchRequests(); };
+  const addMessageToRequest = async (_reqId: string, _msg: any)          => { await fetchRequests(); };
 
   const fetchTeams = useCallback(async () => {
     if (!role) return;
@@ -140,8 +164,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [role]);
   useEffect(() => { if (role) fetchTeams(); }, [role, fetchTeams]);
 
-  const addTeam      = async (d: { name: string; project: string }) => { await teamsApi.create(d); await fetchTeams(); };
-  const deactivateTeam = async (code: string) => { await teamsApi.deactivate(code); await fetchTeams(); };
+  const addTeam       = async (d: { name: string; project: string }) => { await teamsApi.create(d); await fetchTeams(); };
+  const deactivateTeam = async (code: string)                         => { await teamsApi.deactivate(code); await fetchTeams(); };
 
   const fetchFeedbacks = useCallback(async () => {
     if (role !== "admin") return;
@@ -149,8 +173,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [role]);
   useEffect(() => { if (role === "admin") fetchFeedbacks(); }, [role, fetchFeedbacks]);
 
-  const addFeedback     = async (f: any) => { await feedbackApi.submit(f); await fetchFeedbacks(); };
-  const markFeedbackRead = async (id: string) => { await feedbackApi.markRead(id); await fetchFeedbacks(); };
+  const addFeedback      = async (f: any)      => { await feedbackApi.submit(f); await fetchFeedbacks(); };
+  const markFeedbackRead = async (id: string)  => { await feedbackApi.markRead(id); await fetchFeedbacks(); };
 
   const fetchThreads = useCallback(async () => {
     if (!role || !user) return;
