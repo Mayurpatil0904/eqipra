@@ -6,7 +6,7 @@ Students request equipment, faculty verify, lab admins approve and hand out QR-b
 
 ---
 ## Live Demo
-https://your-vercel-url.vercel.app
+https://equipra-app.vercel.app/login
 
 ## Test Credentials
 | Role | Enrollment ID | Password |
