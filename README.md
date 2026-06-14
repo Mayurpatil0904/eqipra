@@ -9,6 +9,8 @@ Students request equipment, faculty verify, lab admins approve and hand out QR-b
 https://equipra-app.vercel.app/login
 
 ## Test Credentials
+> On the login page, select **Parul University** from the dropdown.
+
 | Role | Enrollment ID | Password |
 |------|--------------|----------|
 | Student | PU-STU-001 | student123 |
