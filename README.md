@@ -5,6 +5,15 @@ The web client for **Equipra**, a last-mile logistics platform for university la
 Students request equipment, faculty verify, lab admins approve and hand out QR-based collection passes — and every return goes through a condition-rated inspection workflow with a 24-hour quarantine before re-entering the available pool.
 
 ---
+## Live Demo
+https://your-vercel-url.vercel.app
+
+## Test Credentials
+| Role | Enrollment ID | Password |
+|------|--------------|----------|
+| Student | PU-STU-001 | student123 |
+| Faculty | PU-FAC-001 | faculty123 |
+| Admin | Admin123 | Admin123@ |
 
 ## Tech Stack
 
