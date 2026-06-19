@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { UniversityManagement } from "@/components/UniversityManagement";
 import { ReturnInspectionModal } from "@/components/ReturnInspectionModal";
 import { BulkUploadEquipmentModal } from "@/components/BulkUploadEquipmentModal";
+import { BulkUploadUsersModal } from "@/components/BulkUploadUsersModal";
 import { EquipmentReportModal } from "@/components/EquipmentReportModal";
 import { adminApi, requestsApi, equipmentApi } from "@/lib/api";
 import { formatDate, countWords, cn } from "@/lib/utils";
@@ -483,6 +484,7 @@ export default function AdminDashboard() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [showBulkUploadUsers, setShowBulkUploadUsers] = useState(false);
   const [addRole, setAddRole] = useState("STUDENT");
   const [resetPwUser, setResetPwUser] = useState<{ id: string; name: string } | null>(null);
   const [equipment, setEquipment] = useState<any[]>([]);
@@ -596,6 +598,7 @@ const TABS: { id: Tab; label: string }[] = [
         />
       )}
       {resetPwUser && <ResetPwModal user={resetPwUser} onClose={() => setResetPwUser(null)} />}
+      {showBulkUploadUsers && <BulkUploadUsersModal onClose={() => setShowBulkUploadUsers(false)} onDone={() => loadUsers()} />}
       {returnReq && (
         <ReturnInspectionModal
           request={returnReq}
@@ -714,6 +717,7 @@ const TABS: { id: Tab; label: string }[] = [
         {tab === "students" && (
           <UsersTab users={users} loading={loadU} roleLabel="Student"
             onAdd={() => { setAddRole("STUDENT"); setShowAddUser(true); }}
+            onBulkUpload={() => setShowBulkUploadUsers(true)}
             onRefresh={() => loadUsers("STUDENT")} teams={teams}
             onDeactivate={deactivateUser}
             onResetPw={(id, name) => setResetPwUser({ id, name })} />
@@ -723,6 +727,7 @@ const TABS: { id: Tab; label: string }[] = [
         {tab === "faculty" && (
           <UsersTab users={users} loading={loadU} roleLabel="Faculty"
             onAdd={() => { setAddRole("FACULTY"); setShowAddUser(true); }}
+            onBulkUpload={() => setShowBulkUploadUsers(true)}
             onRefresh={() => loadUsers("FACULTY")} teams={teams}
             onDeactivate={deactivateUser}
             onResetPw={(id, name) => setResetPwUser({ id, name })} />
@@ -1071,7 +1076,7 @@ function StatsTab({ stats }: any) {
 }
 
 // ─── Users Tab ────────────────────────────────────────────────
-function UsersTab({ users, loading, roleLabel, onAdd, onRefresh, teams, onDeactivate, onResetPw }: any) {
+function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, teams, onDeactivate, onResetPw }: any) {
   const isStudent = roleLabel === "Student";
   return (
     <div>
@@ -1080,6 +1085,10 @@ function UsersTab({ users, loading, roleLabel, onAdd, onRefresh, teams, onDeacti
         <div className="flex gap-2">
           <button onClick={onRefresh} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
             <RefreshCw className="h-3 w-3" />Refresh
+          </button>
+          <button onClick={onBulkUpload}
+            className="flex items-center gap-1.5 bg-muted text-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/80 transition-colors border border-border">
+            <Upload className="h-3.5 w-3.5" />Bulk Upload
           </button>
           <button onClick={onAdd}
             className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">

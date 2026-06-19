@@ -235,6 +235,17 @@ export const adminApi = {
     const ext = p.format === "csv" ? "csv" : "xlsx";
     return downloadFile(`/admin/equipment-report?${qs}`, `equipra-transactions-${p.from}_to_${p.to}.${ext}`);
   },
+
+  // ✅ NEW — bulk-import students/faculty from Excel/CSV
+  bulkUploadUsers: (file: File) => {
+    const f = new FormData();
+    f.append("file", file);
+    return reqForm<{ message: string; added: any[]; skipped: any[] }>(
+      "POST", "/admin/users/bulk-upload", f
+    );
+  },
+  downloadUserTemplate: () =>
+    downloadFile("/admin/users/bulk-upload-template", "equipra-users-template.xlsx"),
 };
 
 // ── Professors ────────────────────────────────────────────────
