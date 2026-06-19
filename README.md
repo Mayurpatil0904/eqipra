@@ -3,6 +3,17 @@
 A full-featured React + TypeScript + Tailwind CSS platform for managing laboratory equipment access in universities.
 
 ---
+## Live Demo
+https://equipra-app.vercel.app/login
+
+## Test Credentials
+> On the login page, select **Parul University** from the dropdown.
+
+| Role | Enrollment ID | Password |
+|------|--------------|----------|
+| Student | PU-STU-001 | student123 |
+| Faculty | PU-FAC-001 | faculty123 |
+| Admin | Admin123 | Admin123@ |
 
 ## 🚀 Quick Start
 
