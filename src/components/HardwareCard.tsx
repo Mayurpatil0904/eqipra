@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MapPin, Calendar, ArrowRight } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { useApp } from "@/context/AppContext";
+import { getEquipmentIcon } from "@/lib/equipmentIcons";
 
 interface Props {
   item: any; // accepts both hardwareData shape and DB shape
@@ -11,14 +12,15 @@ export function HardwareCard({ item }: Props) {
   const { role } = useApp();
   // DB uses `slug` as the URL key; legacy hardwareData uses `id`
   const urlKey = item.slug ?? item.id;
+  const Icon = getEquipmentIcon(item.category);
 
   return (
     <Link to={`/hardware/${urlKey}`} className="group block h-full">
       <div className="h-full flex flex-col bg-card rounded-lg border border-border/60 overflow-hidden shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/40">
 
-        {/* Emoji thumbnail */}
-        <div className="h-44 flex items-center justify-center bg-muted/30 text-6xl transition-transform duration-300 group-hover:scale-105 select-none">
-          {item.emoji ?? "📦"}
+        {/* Category icon thumbnail */}
+        <div className="h-44 flex items-center justify-center bg-muted/30 transition-transform duration-300 group-hover:scale-105 select-none">
+          <Icon className="h-16 w-16 text-primary/70" strokeWidth={1.5} />
         </div>
 
         <div className="flex flex-col flex-1 p-5 gap-3">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle2,
   MapPin,
@@ -10,8 +10,11 @@ import {
   ChevronDown,
   ChevronUp,
   Printer,
+  QrCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import QRCode from "qrcode";
+import { getEquipmentIcon } from "@/lib/equipmentIcons";
 
 interface Props {
   request: any;
@@ -51,25 +54,35 @@ function Detail({
   );
 }
 
-// Generate QR code as data URL using Canvas API (no external package needed)
-async function generateQrDataUrl(text: string): Promise<string> {
-  // Use a simple QR code via a public API as fallback
-  // Encode the text as a QR code image URL
-  const size = 200;
-  const encoded = encodeURIComponent(text);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&format=png`;
-}
-
 export function CollectionPass({ request }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [qrUrl, setQrUrl] = useState<string>("");
-  const passRef = useRef<HTMLDivElement>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  // ✅ Generate the QR code image client-side from the request's qrToken.
+  // The QR encodes a URL like https://<frontend-origin>/scan/<token>,
+  // which the admin's scanner page resolves via GET /api/requests/scan/:token.
+  useEffect(() => {
+    if (!request?.qrToken) {
+      setQrDataUrl(null);
+      return;
+    }
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const scanUrl = `${origin}/scan/${request.qrToken}`;
+    QRCode.toDataURL(scanUrl, {
+      width: 240,
+      margin: 1,
+      color: { dark: "#0F1629", light: "#FFFFFF" },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null));
+  }, [request?.qrToken]);
 
   if (!request) return null;
 
   if (request.status !== "approved") return null;
 
   const equipment = request.equipment ?? {};
+  const EquipmentIcon = getEquipmentIcon(equipment.category);
   const student = request.student ?? {};
   const faculty = request.faculty ?? {};
   const messages = request.messages ?? [];
@@ -96,85 +109,43 @@ export function CollectionPass({ request }: Props) {
       })
     : "N/A";
 
-  // Generate QR code when expanded and qrToken available
-  useEffect(() => {
-    if (expanded && request.qrToken && !qrUrl) {
-      const scanUrl = `${window.location.origin}/scan/${request.qrToken}`;
-      generateQrDataUrl(scanUrl).then(setQrUrl);
-    }
-  }, [expanded, request.qrToken]);
+  // Unique id so each pass can be printed in isolation, even when
+  // multiple CollectionPass instances exist on /my-requests at once.
+  const printId = `collection-pass-${request.id}`;
 
-  // Print only the collection pass
   const handlePrint = () => {
-    const passEl = passRef.current;
-    if (!passEl) { window.print(); return; }
+    const node = document.getElementById(printId);
+    if (!node) { window.print(); return; }
 
-    const printWindow = window.open("", "_blank", "width=600,height=800");
+    const printWindow = window.open("", "_blank", "width=480,height=720");
     if (!printWindow) { window.print(); return; }
 
     printWindow.document.write(`
       <html>
-      <head>
-        <title>Collection Pass - ${request.requestCode ?? request.id.slice(0,8)}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
-          .pass { border: 2px solid #22c55e; border-radius: 12px; overflow: hidden; max-width: 500px; margin: 0 auto; }
-          .header { background: #2563eb; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
-          .header-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; }
-          .header-main { font-size: 18px; font-weight: 700; margin-top: 4px; }
-          .emoji { font-size: 36px; }
-          .body { padding: 16px 20px; }
-          .code-row { background: #f5f5f5; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-          .code-label { font-size: 12px; color: #666; }
-          .code-value { font-size: 18px; font-weight: 700; font-family: monospace; letter-spacing: 2px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-          .detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 600; margin-bottom: 2px; }
-          .detail-value { font-size: 13px; font-weight: 500; }
-          .full { grid-column: span 2; }
-          .qr-section { text-align: center; padding: 16px; border-top: 1px solid #eee; }
-          .qr-section img { width: 150px; height: 150px; margin: 0 auto; }
-          .qr-label { font-size: 10px; color: #666; margin-top: 8px; }
-          .footer { font-size: 9px; color: #999; text-align: center; border-top: 1px solid #eee; padding: 12px; }
-          .instructions { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
-          .instructions-label { font-size: 10px; color: #2563eb; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
-          .instructions-text { font-size: 13px; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <div class="pass">
-          <div class="header">
-            <div>
-              <div class="header-title">Equipra · Collection Pass</div>
-              <div class="header-main">Equipment Approved ✓</div>
-            </div>
-            <div class="emoji">${equipment.emoji ?? "📦"}</div>
-          </div>
-          <div class="body">
-            <div class="code-row">
-              <span class="code-label"># Request Code</span>
-              <span class="code-value">${request.requestCode ?? "N/A"}</span>
-            </div>
-            <div class="grid">
-              <div><div class="detail-label">Equipment</div><div class="detail-value">${equipment.name ?? "Equipment"}</div></div>
-              <div><div class="detail-label">Lab Location</div><div class="detail-value" style="color:#2563eb;font-weight:700">${equipment.labLocation ?? "Lab"}</div></div>
-              <div><div class="detail-label">From</div><div class="detail-value">${fromDate}</div></div>
-              <div><div class="detail-label">Return By</div><div class="detail-value" style="color:#2563eb;font-weight:700">${toDate}</div></div>
-              <div><div class="detail-label">Student</div><div class="detail-value">${student.name ? `${student.name} · ${student.enrollmentId ?? ""}` : "Student"}</div></div>
-              <div><div class="detail-label">Verified By</div><div class="detail-value">${faculty.name ?? "Faculty"}</div></div>
-              <div class="full"><div class="detail-label">Project</div><div class="detail-value">${request.project ?? "N/A"}</div></div>
-            </div>
-            ${labMessage ? `<div class="instructions"><div class="instructions-label">Collection Instructions</div><div class="instructions-text">${labMessage.text}</div></div>` : ""}
-            ${qrUrl ? `<div class="qr-section"><img src="${qrUrl}" alt="QR Code" /><div class="qr-label">Scan to verify · ${request.requestCode ?? ""}</div></div>` : ""}
-          </div>
-          <div class="footer">Present this pass at the lab counter. Equipment must be returned by ${toDate}.</div>
-        </div>
-      </body>
+        <head>
+          <title>Equipra Collection Pass — ${request.requestCode ?? ""}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              margin: 0;
+              padding: 24px;
+              background: #fff;
+              color: #0F1629;
+            }
+            img { display: block; margin: 0 auto; }
+          </style>
+        </head>
+        <body>${node.outerHTML}</body>
       </html>
     `);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+    printWindow.focus();
+    // give the QR <img> a moment to render before printing
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 350);
   };
 
   return (
@@ -206,7 +177,7 @@ export function CollectionPass({ request }: Props) {
 
       {expanded && (
         <div className="border-t border-status-available/20">
-          <div ref={passRef} className="mx-4 my-4 bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          <div id={printId} className="mx-4 my-4 bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             <div className="bg-primary px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-primary-foreground/70 uppercase tracking-widest">
@@ -218,8 +189,8 @@ export function CollectionPass({ request }: Props) {
                 </p>
               </div>
 
-              <div className="text-4xl">
-                {equipment.emoji ?? "📦"}
+              <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                <EquipmentIcon className="h-7 w-7 text-white" />
               </div>
             </div>
 
@@ -235,12 +206,33 @@ export function CollectionPass({ request }: Props) {
                 </span>
               </div>
 
+              {/* ✅ QR Code — admin scans this to pull up the request
+                  and mark it returned at the lab counter */}
+              {qrDataUrl && (
+                <div className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-border">
+                  <img src={qrDataUrl} alt="Collection pass QR code" className="w-40 h-40" />
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                    <QrCode className="h-3 w-3" />
+                    Lab admin scans this to check you in / process your return
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <Detail
                   icon={Package}
                   label="Equipment"
                   value={equipment.name ?? "Equipment"}
                 />
+
+                {/* ✅ Show human-readable equipment ID if present */}
+                {equipment.equipmentId && (
+                  <Detail
+                    icon={Hash}
+                    label="Equipment ID"
+                    value={equipment.equipmentId}
+                  />
+                )}
 
                 <Detail
                   icon={MapPin}
@@ -285,16 +277,6 @@ export function CollectionPass({ request }: Props) {
                 value={request.project ?? "N/A"}
                 full
               />
-
-              {/* QR Code */}
-              {qrUrl && (
-                <div className="flex flex-col items-center gap-2 p-4 bg-muted/30 rounded-xl border border-border">
-                  <img src={qrUrl} alt="QR Code" className="w-36 h-36 rounded-lg" />
-                  <p className="text-[10px] text-muted-foreground">
-                    Scan to verify · {request.requestCode ?? ""}
-                  </p>
-                </div>
-              )}
 
               {labMessage ? (
                 <div className="p-3.5 bg-primary/8 border border-primary/20 rounded-xl">

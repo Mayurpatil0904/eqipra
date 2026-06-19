@@ -5,6 +5,7 @@ import { equipmentApi } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/utils";
+import { getEquipmentIcon } from "@/lib/equipmentIcons";
 
 const dotCls: Record<string, string> = {
   success: "bg-status-available",
@@ -51,6 +52,7 @@ export default function HardwareDetail() {
   const typicalUses = item.typicalUses ?? [];
   const timeline    = item.timeline    ?? [];
   const faultStatus = item.faultScanStatus ?? (item.faultScans?.[0]?.result === "ok" ? "scanned-ok-after" : "not-scanned");
+  const Icon         = getEquipmentIcon(item.category);
 
   return (
     <div className="container py-8 max-w-5xl">
@@ -62,8 +64,8 @@ export default function HardwareDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
         {/* Left */}
         <div className="space-y-4">
-          <div className="aspect-square rounded-xl bg-muted/30 border border-border flex items-center justify-center text-7xl select-none">
-            {item.emoji ?? "📦"}
+          <div className="aspect-square rounded-xl bg-muted/30 border border-border flex items-center justify-center select-none">
+            <Icon className="h-24 w-24 text-primary/70" strokeWidth={1.5} />
           </div>
           {typicalUses.length > 0 && (
             <div className="bg-card rounded-xl border border-border p-4">
@@ -83,7 +85,12 @@ export default function HardwareDetail() {
         {/* Right */}
         <div>
           <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">{item.category}</p>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-4">{item.name}</h1>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-1">{item.name}</h1>
+          <p className="text-xs font-mono text-muted-foreground mb-4">
+            {item.equipmentId
+              ? <>Equipment ID: <span className="font-semibold text-foreground">{item.equipmentId}</span></>
+              : <span className="invisible">placeholder</span>}
+          </p>
 
           <div className="flex flex-wrap gap-2 mb-5">
             <StatusBadge type="availability" status={item.availabilityStatus} />
@@ -140,7 +147,17 @@ export default function HardwareDetail() {
           {/* Timeline */}
           {timeline.length > 0 && (
             <div>
-              <p className="font-semibold text-foreground mb-4 text-sm">Usage Timeline</p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-semibold text-foreground text-sm">Usage Timeline</p>
+                {item.equipmentId && (
+                  <Link
+                    to={`/fault-scan?id=${item.equipmentId}`}
+                    className="text-xs text-primary font-medium hover:underline"
+                  >
+                    View full history →
+                  </Link>
+                )}
+              </div>
               <div className="space-y-0">
                 {timeline.map((entry: any, i: number) => (
                   <div key={i} className="flex gap-4 pb-4 last:pb-0 relative">

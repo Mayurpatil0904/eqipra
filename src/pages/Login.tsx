@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import {
   Cpu,
@@ -53,6 +53,15 @@ export default function Login() {
   const { login } = useApp();
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ Read destination from ?from= query param (survives fresh browser tabs
+  // like when a phone camera opens a QR code URL) AND location.state
+  // (works for in-app navigations). Query param takes priority.
+  const searchParams = new URLSearchParams(location.search);
+  const fromQuery = searchParams.get("from");
+  const fromState = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+  const from = fromQuery ?? fromState;
 
   const [college, setCollege] =
     useState("");
@@ -122,11 +131,16 @@ export default function Login() {
       );
 
       navigate(
-        selectedRole === "admin"
+        // ✅ If they were redirected here from a specific page
+        // (e.g. /scan/:token), send them back there regardless of role.
+        from
+          ? from
+          : selectedRole === "admin"
           ? "/admin"
           : selectedRole === "faculty"
           ? "/faculty"
-          : "/"
+          : "/",
+        { replace: true }
       );
 
     } catch (err: any) {

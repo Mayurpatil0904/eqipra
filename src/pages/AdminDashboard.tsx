@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle2, XCircle, Plus, Trash2, Pencil, Loader2, RefreshCw, UserPlus, Save, Building2, ShieldCheck } from "lucide-react";
+import { X, CheckCircle2, XCircle, Plus, Trash2, Pencil, Loader2, RefreshCw, UserPlus, Save, Building2, ShieldCheck, Upload, FileSpreadsheet } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UniversityManagement } from "@/components/UniversityManagement";
 import { ReturnInspectionModal } from "@/components/ReturnInspectionModal";
+import { BulkUploadEquipmentModal } from "@/components/BulkUploadEquipmentModal";
+import { EquipmentReportModal } from "@/components/EquipmentReportModal";
 import { adminApi, requestsApi, equipmentApi } from "@/lib/api";
 import { formatDate, countWords, cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getEquipmentIcon } from "@/lib/equipmentIcons";
 
 // ✅ Updated Tab type — added "universities"
 type Tab = "stats" | "requests" | "students" | "faculty" | "inventory" | "feedback" | "add_user" | "universities";
@@ -104,12 +107,18 @@ function EquipmentModal({ onClose, onSaved, existing }: { onClose: () => void; o
     // ✅ NEW quantity fields
     totalUnits: existing?.totalUnits ?? 1,
     availableUnits: existing?.availableUnits ?? 1,
+    // ✅ NEW — visibility controls
+    department: existing?.department ?? "",
+    visibleToStudents: existing?.visibleToStudents ?? true,
   });
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: any) => setF(p => ({ ...p, [k]: v }));
 
   const save = async () => {
-    const req = ["slug", "name", "category", "description", "labLocation", "supervisorName"];
+    // ✅ FIX — "slug" removed from required fields. The backend now
+    // auto-generates a URL slug from the equipment name (and a separate
+    // human-readable Equipment ID like EQ-0001) when left blank.
+    const req = ["name", "category", "description", "labLocation", "supervisorName"];
     for (const k of req) { if (!(f as any)[k]) { toast.error(`${k} is required.`); return; } }
     if (f.availableUnits > f.totalUnits) {
       toast.error("Available quantity cannot exceed total quantity."); return;
@@ -121,6 +130,9 @@ function EquipmentModal({ onClose, onSaved, existing }: { onClose: () => void; o
         typicalUses: f.typicalUses.split(",").map((s: string) => s.trim()).filter(Boolean),
         totalUnits: Number(f.totalUnits),
         availableUnits: Number(f.availableUnits),
+        // ✅ NEW — empty string means "general equipment" (visible to all departments)
+        department: f.department.trim() === "" ? null : f.department.trim(),
+        visibleToStudents: f.visibleToStudents,
       };
       if (isEdit) { await equipmentApi.update(f.slug, payload); toast.success("Equipment updated!"); }
       else { await equipmentApi.create(payload); toast.success("Equipment added!"); }
@@ -129,7 +141,7 @@ function EquipmentModal({ onClose, onSaved, existing }: { onClose: () => void; o
     finally { setBusy(false); }
   };
 
-  const statuses = ["available", "issued", "reserved", "maintenance"];
+  const statuses = ["available", "issued", "reserved", "maintenance", "inspection"];
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -144,17 +156,20 @@ function EquipmentModal({ onClose, onSaved, existing }: { onClose: () => void; o
           <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button>
         </div>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {[{ k: "slug", l: "Equipment ID (slug)" }, { k: "emoji", l: "Emoji" }].map(({ k, l }) => (
-              <div key={k}>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                  {l}{k === "slug" ? " *" : ""}
-                </label>
-                <input value={(f as any)[k]} onChange={e => set(k, e.target.value)}
-                  disabled={isEdit && k === "slug"}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50" />
-              </div>
-            ))}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              URL Slug
+              <span className="normal-case font-normal text-muted-foreground"> (optional)</span>
+            </label>
+            <input value={f.slug} onChange={e => set("slug", e.target.value)}
+              disabled={isEdit}
+              placeholder="Auto-generated from name if left blank"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50" />
+            {!isEdit && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                A unique <strong>Equipment ID</strong> (e.g. EQ-0001) and display icon (based on Category) are generated automatically — this slug is only used in the page URL.
+              </p>
+            )}
           </div>
           {[
             { k: "name", l: "Equipment Name *" },
@@ -200,6 +215,32 @@ function EquipmentModal({ onClose, onSaved, existing }: { onClose: () => void; o
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          {/* ✅ NEW — Department-scoped visibility */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              Department <span className="normal-case font-normal">(leave blank for general equipment, visible to all departments)</span>
+            </label>
+            <input value={f.department} onChange={e => set("department", e.target.value)}
+              placeholder="e.g. Computer Science — leave empty for general equipment"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+          </div>
+
+          {/* ✅ NEW — Visibility toggle */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={f.visibleToStudents}
+              onChange={e => set("visibleToStudents", e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            <span className="text-sm text-foreground">
+              Visible to students
+              <span className="block text-xs text-muted-foreground font-normal">
+                Uncheck to make this equipment faculty/admin-only (e.g. supervisor-only gear).
+              </span>
+            </span>
+          </label>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Description *</label>
             <textarea value={f.description} onChange={e => set("description", e.target.value)} rows={2}
@@ -438,6 +479,9 @@ export default function AdminDashboard() {
   const [respondId, setRespondId] = useState<string | null>(null);
   const [showAddEq, setShowAddEq] = useState(false);
   const [editEq, setEditEq] = useState<any>(null);
+  // ✅ NEW — bulk upload + transaction report modals
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [addRole, setAddRole] = useState("STUDENT");
   const [resetPwUser, setResetPwUser] = useState<{ id: string; name: string } | null>(null);
@@ -517,6 +561,15 @@ const TABS: { id: Tab; label: string }[] = [
     catch (e: any) { toast.error(e.message); }
   };
 
+  // ✅ NEW — Pass/Fail a unit sitting in the inspection queue or 24h hold
+  const handleClearInspection = async (slug: string, action: "pass" | "fail") => {
+    try {
+      await requestsApi.clearInspection(slug, action);
+      toast.success(action === "pass" ? "Unit cleared — now available." : "Unit moved to maintenance.");
+      loadEquip();
+    } catch (e: any) { toast.error(e.message ?? "Failed to update inspection status."); }
+  };
+
   const deactivateUser = async (id: string, name: string) => {
     if (!confirm(`Deactivate "${name}"? They will no longer be able to log in.`)) return;
     try { await adminApi.deactivateUser(id); toast.success(`${name} deactivated.`); loadUsers(); }
@@ -530,6 +583,9 @@ const TABS: { id: Tab; label: string }[] = [
     <>
       {respondId   && <RespondModal reqId={respondId} onClose={() => setRespondId(null)} />}
       {showAddEq   && <EquipmentModal onClose={() => setShowAddEq(false)} onSaved={loadEquip} />}
+      {/* ✅ NEW */}
+      {showBulkUpload && <BulkUploadEquipmentModal onClose={() => setShowBulkUpload(false)} onDone={loadEquip} />}
+      {showReport     && <EquipmentReportModal onClose={() => setShowReport(false)} />}
       {editEq      && <EquipmentModal onClose={() => setEditEq(null)} onSaved={loadEquip} existing={editEq} />}
       {showAddUser && (
         <AddUserModal
@@ -677,9 +733,19 @@ const TABS: { id: Tab; label: string }[] = [
           <div>
             <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
               <p className="text-sm text-muted-foreground">{equipment.length} items</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button onClick={loadEquip} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
                   <RefreshCw className="h-3 w-3" />Refresh
+                </button>
+                {/* ✅ NEW — Download transaction report */}
+                <button onClick={() => setShowReport(true)}
+                  className="flex items-center gap-1.5 border border-border px-3 py-2 rounded-lg text-xs font-semibold text-foreground hover:bg-muted transition-colors">
+                  <FileSpreadsheet className="h-3.5 w-3.5" />Download Report
+                </button>
+                {/* ✅ NEW — Bulk upload */}
+                <button onClick={() => setShowBulkUpload(true)}
+                  className="flex items-center gap-1.5 border border-border px-3 py-2 rounded-lg text-xs font-semibold text-foreground hover:bg-muted transition-colors">
+                  <Upload className="h-3.5 w-3.5" />Bulk Upload
                 </button>
                 <button onClick={() => setShowAddEq(true)}
                   className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
@@ -697,18 +763,30 @@ const TABS: { id: Tab; label: string }[] = [
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>ID</th><th>Name</th><th>Category</th><th>Location</th>
+                        <th>Equipment ID</th><th>Name</th><th>Category</th><th>Dept</th><th>Location</th>
                         {/* ✅ NEW columns */}
-                        <th>Qty</th><th>Available</th>
+                        <th>Qty</th><th>Available</th><th>Pending/Insp.</th>
                         <th>Status</th><th>Condition</th><th>Supervisor</th><th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {equipment.map((h: any) => (
                         <tr key={h.id}>
-                          <td className="font-mono text-xs">{h.slug}</td>
-                          <td><span className="mr-1">{h.emoji}</span><span className="font-medium">{h.name}</span></td>
+                          <td className="font-mono text-xs">
+                            <span className="font-semibold text-foreground">{h.equipmentId ?? "—"}</span>
+                            <span className="block text-[10px] text-muted-foreground">{h.slug}</span>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1.5">
+                              {(() => { const RowIcon = getEquipmentIcon(h.category); return <RowIcon className="h-4 w-4 text-primary flex-shrink-0" />; })()}
+                              <span className="font-medium">{h.name}</span>
+                            </div>
+                            {h.visibleToStudents === false && (
+                              <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Staff only</span>
+                            )}
+                          </td>
                           <td className="text-muted-foreground">{h.category}</td>
+                          <td className="text-muted-foreground text-xs">{h.department ?? <span className="italic text-muted-foreground/60">General</span>}</td>
                           <td className="text-muted-foreground text-xs">{h.labLocation}</td>
                           {/* ✅ Quantity columns */}
                           <td className="text-center font-medium">{h.totalUnits ?? 1}</td>
@@ -721,6 +799,33 @@ const TABS: { id: Tab; label: string }[] = [
                             )}>
                               {h.availableUnits ?? 1}
                             </span>
+                          </td>
+                          {/* ✅ NEW — pending (24h hold) / inspection-queue units */}
+                          <td className="text-center text-xs">
+                            {((h.pendingUnits ?? 0) > 0 || (h.inspectionUnits ?? 0) > 0) ? (
+                              <div className="flex flex-col items-center gap-1">
+                                {(h.pendingUnits ?? 0) > 0 && (
+                                  <span className="text-status-pending font-semibold">{h.pendingUnits} on hold</span>
+                                )}
+                                {(h.inspectionUnits ?? 0) > 0 && (
+                                  <span className="text-status-issued font-semibold">{h.inspectionUnits} to inspect</span>
+                                )}
+                                <div className="flex gap-1">
+                                  <button onClick={() => handleClearInspection(h.slug, "pass")}
+                                    title="Mark as passed — return to available pool"
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-status-available/10 text-status-available hover:bg-status-available hover:text-white transition-colors font-semibold">
+                                    ✓ Pass
+                                  </button>
+                                  <button onClick={() => handleClearInspection(h.slug, "fail")}
+                                    title="Mark as failed — send to maintenance"
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-status-fault/10 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-semibold">
+                                    ✗ Fail
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td><StatusBadge type="availability" status={h.availabilityStatus} /></td>
                           <td className="text-xs text-muted-foreground max-w-[130px] truncate">{h.conditionLog}</td>
@@ -740,7 +845,7 @@ const TABS: { id: Tab; label: string }[] = [
                         </tr>
                       ))}
                       {equipment.length === 0 && (
-                        <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">No equipment found.</td></tr>
+                        <tr><td colSpan={12} className="text-center py-8 text-muted-foreground">No equipment found.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -934,10 +1039,14 @@ function StatsTab({ stats }: any) {
     );
 
     return (
-      <div key={item.id}>
+      <div key={item.equipmentId ?? item.name}>
         <div className="flex justify-between text-sm mb-1">
-          <span className="text-foreground">
-            {item.emoji} {item.name}
+          <span className="text-foreground flex items-center gap-1.5">
+            {(() => { const WidgetIcon = getEquipmentIcon(item.category); return <WidgetIcon className="h-3.5 w-3.5 text-primary flex-shrink-0" />; })()}
+            {item.name}
+            {item.equipmentId && (
+              <span className="text-xs text-muted-foreground font-mono ml-1.5">({item.equipmentId})</span>
+            )}
           </span>
 
           <span className="text-muted-foreground">

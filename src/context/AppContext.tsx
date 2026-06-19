@@ -47,12 +47,18 @@ function mapRequest(r: any): EquipmentRequest {
       senderName: m.sentBy?.name,
     })),
     createdAt: r.createdAt?.slice(0,10) ?? "",
+    // ✅ NEW — needed by CollectionPass (QR code, request code, full nested objects)
     requestCode: r.requestCode,
     qrToken: r.qrToken,
     equipment: r.equipment,
     student: r.student,
     faculty: r.faculty,
-  };
+    conditionRating: r.conditionRating,
+    damageNotes: r.damageNotes,
+    damagePercent: r.damagePercent,
+    issuedAt: r.issuedAt,
+    returnedAt: r.returnedAt,
+  } as any;
 }
 
 function mapTeam(t: any): Team {

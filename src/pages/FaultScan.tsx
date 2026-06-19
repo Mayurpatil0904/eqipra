@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, CheckCircle2, AlertTriangle, Clock, ShieldCheck, Loader2 } from "lucide-react";
-import { faultScanApi } from "@/lib/api";
+import { useSearchParams } from "react-router-dom";
+import { Search, CheckCircle2, AlertTriangle, Clock, ShieldCheck, Loader2, History } from "lucide-react";
+import { faultScanApi, equipmentApi } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getEquipmentIcon } from "@/lib/equipmentIcons";
 
 interface ScanRecord {
   equipmentName: string;
@@ -14,9 +16,17 @@ interface ScanRecord {
   ok:            boolean;
 }
 
+const dotCls: Record<string, string> = {
+  success: "bg-status-available",
+  pending: "bg-status-pending",
+  warning: "bg-status-issued",
+  error:   "bg-status-fault",
+};
+
 export default function FaultScan() {
   const { role } = useApp();
-  const [query,     setQuery]     = useState("");
+  const [searchParams] = useSearchParams();
+  const [query,     setQuery]     = useState(searchParams.get("id") ?? "");
   const [scanning,  setScanning]  = useState(false);
   const [result,    setResult]    = useState<any>(null);
   const [notFound,  setNotFound]  = useState(false);
@@ -41,31 +51,51 @@ export default function FaultScan() {
   }, []);
 
   const lookupEquipment = async () => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return;
     setScanning(true);
     setResult(null);
     setNotFound(false);
     try {
-      // Try to fetch by slug from backend
-      const { equipmentApi } = await import("@/lib/api");
-      const item = await equipmentApi.get(q);
+      // ✅ Try the human-readable Equipment ID lookup first — this is the
+      // only endpoint that returns the FULL (unlimited) timeline history.
+      const item = await equipmentApi.lookupByEquipmentId(q);
       setResult(item);
     } catch {
-      // Fallback: search local data
-      const { hardwareData } = await import("@/data/hardwareData");
-      const local = hardwareData.find(h =>
-        h.id.toLowerCase() === q || h.name.toLowerCase().includes(q)
-      );
-      if (local) {
-        setResult(local);
-      } else {
-        setNotFound(true);
+      try {
+        // Fallback: try as a slug (returns only latest 5 timeline entries)
+        const item = await equipmentApi.get(q.toLowerCase());
+        setResult(item);
+      } catch {
+        // Final fallback: search local seed data
+        const { hardwareData } = await import("@/data/hardwareData");
+        const ql = q.toLowerCase();
+        const local = hardwareData.find(h =>
+          h.id.toLowerCase() === ql || h.name.toLowerCase().includes(ql)
+        );
+        if (local) {
+          setResult(local);
+        } else {
+          setNotFound(true);
+        }
       }
     } finally {
       setScanning(false);
     }
   };
+
+  // Auto-run lookup if an Equipment ID was passed via ?id= (from Inventory page link)
+  useEffect(() => {
+    const idParam = searchParams.get("id");
+    if (idParam) {
+      // small delay to ensure state is settled
+      setQuery(idParam);
+      equipmentApi.lookupByEquipmentId(idParam)
+        .then(setResult)
+        .catch(() => setNotFound(true));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submitScan = async () => {
     if (!result) { toast.error("Please look up equipment first."); return; }
@@ -99,6 +129,8 @@ export default function FaultScan() {
     { status: "not_scanned"       as const, title: "Not Yet Scanned",             desc: "Hardware pending inspection." },
   ];
 
+  const ResultIcon = getEquipmentIcon(result?.category);
+
   return (
     <>
       <section className="bg-muted/30 border-b border-border py-12">
@@ -128,14 +160,14 @@ export default function FaultScan() {
           <div className="scan-ring mb-6">🔍</div>
           <h3 className="font-semibold text-foreground text-center mb-2">Equipment Lookup</h3>
           <p className="text-sm text-muted-foreground text-center mb-5">
-            Enter equipment slug (e.g. <code className="font-mono text-primary bg-primary/8 px-1.5 py-0.5 rounded text-xs">esp32-wifi</code>) or name to look it up.
+            Enter the Equipment ID (e.g. <code className="font-mono text-primary bg-primary/8 px-1.5 py-0.5 rounded text-xs">EQ-0001</code>) to view its full usage history, or search by name/slug.
           </p>
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input type="text" value={query} onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && lookupEquipment()}
-                placeholder="Enter equipment ID or name…"
+                placeholder="e.g. EQ-0001 or equipment name…"
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
             </div>
             <button onClick={lookupEquipment} disabled={scanning}
@@ -153,8 +185,13 @@ export default function FaultScan() {
                   ? "bg-status-fault/10 border-status-fault/30"
                   : "bg-status-available/10 border-status-available/30")}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">{result.emoji ?? "📦"}</span>
+                  <ResultIcon className="h-4 w-4 text-primary" />
                   <span className="font-semibold text-foreground">{result.name}</span>
+                  {result.equipmentId && (
+                    <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {result.equipmentId}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {result.availabilityStatus && <StatusBadge type="availability" status={result.availabilityStatus} />}
@@ -162,6 +199,32 @@ export default function FaultScan() {
                 </div>
                 <p className="text-xs text-muted-foreground">📍 {result.labLocation} · Supervisor: {result.supervisorName ?? result.supervisor}</p>
               </div>
+
+              {/* ✅ Full usage timeline history — unlimited, unlike Inventory's latest-5 */}
+              {Array.isArray(result.timeline) && result.timeline.length > 0 && (
+                <div className="bg-muted/30 border border-border rounded-xl p-4 mb-4">
+                  <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                    <History className="h-4 w-4 text-primary" />
+                    Usage Timeline ({result.timeline.length} {result.timeline.length === 1 ? "entry" : "entries"})
+                  </p>
+                  <div className="space-y-0 max-h-80 overflow-y-auto pr-1">
+                    {result.timeline.map((entry: any, i: number) => (
+                      <div key={entry.id ?? i} className="flex gap-3 pb-3 last:pb-0 relative">
+                        {i < result.timeline.length - 1 && (
+                          <div className="absolute left-[5px] top-5 w-0.5 h-full bg-border" />
+                        )}
+                        <div className={cn("w-[11px] h-[11px] rounded-full flex-shrink-0 mt-1 z-10", dotCls[entry.status] ?? "bg-muted")} />
+                        <div>
+                          <p className="text-sm text-foreground">{entry.description}</p>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                            {entry.date ?? new Date(entry.createdAt).toLocaleDateString("en-IN")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Admin scan form */}
               {role === "admin" && (

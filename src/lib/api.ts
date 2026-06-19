@@ -38,6 +38,39 @@ async function reqForm<T>(method: string, path: string, form: FormData): Promise
   return json.data as T;
 }
 
+// ✅ NEW — for endpoints that return a raw file (xlsx/csv) instead of JSON.
+// Fetches the file as a Blob, reads the filename from the
+// Content-Disposition header if present, and triggers a browser download.
+async function downloadFile(
+  path: string,
+  fallbackFilename: string
+): Promise<void> {
+  const t = token.get();
+  const res = await fetch(`${BASE}${path}`, {
+    headers: t ? { Authorization: `Bearer ${t}` } : {},
+  });
+
+  if (!res.ok) {
+    // Error responses are still JSON — surface the real message
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message ?? `HTTP ${res.status}`);
+  }
+
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? fallbackFilename;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 const get    = <T>(p: string)              => req<T>("GET",    p);
 const post   = <T>(p: string, b: unknown)  => req<T>("POST",   p, b);
 const patch  = <T>(p: string, b?: unknown) => req<T>("PATCH",  p, b);
@@ -65,7 +98,20 @@ export const equipmentApi = {
   create:     (d: any)               => post<any>("/equipment", d),
   update:     (slug: string, d: any) => patch<any>(`/equipment/${slug}`, d),
   remove:     (slug: string)         => del<any>(`/equipment/${slug}`),
-  fullTimeline: (idOrSlug: string)   => get<any>(`/equipment/${idOrSlug}/full-timeline`),
+  // ✅ NEW — Fault Scan page lookup by human-readable Equipment ID (EQ-0001),
+  // returns FULL timeline history (not limited to 5)
+  lookupByEquipmentId: (equipmentId: string) => get<any>(`/equipment/lookup/${equipmentId}`),
+
+  // ✅ NEW — bulk-import many equipment items at once from Excel/CSV
+  bulkUpload: (file: File) => {
+    const f = new FormData();
+    f.append("file", file);
+    return reqForm<{ message: string; added: any[]; skipped: any[] }>(
+      "POST", "/equipment/bulk-upload", f
+    );
+  },
+  downloadBulkUploadTemplate: () =>
+    downloadFile("/equipment/bulk-upload-template", "equipra-equipment-template.xlsx"),
 };
 
 // ── Requests ──────────────────────────────────────────────────
@@ -181,6 +227,14 @@ export const adminApi = {
 
   deleteCollege: (id: string) =>
   del<any>(`/admin/colleges/${id}`),
+
+  // ✅ NEW — bank-statement-style equipment transaction report,
+  // downloaded directly as a file (xlsx or csv)
+  downloadEquipmentReport: (p: { from: string; to: string; format: "xlsx" | "csv"; department?: string }) => {
+    const qs = new URLSearchParams(p as any).toString();
+    const ext = p.format === "csv" ? "csv" : "xlsx";
+    return downloadFile(`/admin/equipment-report?${qs}`, `equipra-transactions-${p.from}_to_${p.to}.${ext}`);
+  },
 };
 
 // ── Professors ────────────────────────────────────────────────

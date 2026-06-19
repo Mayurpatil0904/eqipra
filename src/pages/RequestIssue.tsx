@@ -140,7 +140,7 @@ export default function RequestIssue() {
                 className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
                 <option value="">— Choose Equipment —</option>
                 {allEquipment.map((h: any) => (
-                  <option key={h.slug ?? h.id} value={h.slug ?? h.id}>{h.emoji} {h.name} ({h.labLocation})</option>
+                  <option key={h.slug ?? h.id} value={h.slug ?? h.id}>{h.name} — {h.labLocation}</option>
                 ))}
               </select>
               {selectedItem && (

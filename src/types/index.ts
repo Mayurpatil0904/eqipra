@@ -49,7 +49,8 @@ export type RequestStatus =
   | "approved"
   | "rejected"
   | "issued"
-  | "returned";
+  | "returned"
+  | "returned_pending_inspection";
 
 export interface RequestMessage {
   from: "me" | "lab" | "faculty";
@@ -75,11 +76,17 @@ export interface EquipmentRequest {
   studentName: string;
   messages: RequestMessage[];
   createdAt: string;
+  // ✅ NEW — needed for QR collection pass + return inspection
   requestCode?: string;
-  qrToken?: string;
-  equipment?: { slug?: string; name?: string; emoji?: string; labLocation?: string };
-  student?: { name?: string; enrollmentId?: string; email?: string };
-  faculty?: { name?: string };
+  qrToken?: string | null;
+  equipment?: any;
+  student?: any;
+  faculty?: any;
+  conditionRating?: number | null;
+  damageNotes?: string | null;
+  damagePercent?: number | null;
+  issuedAt?: string | null;
+  returnedAt?: string | null;
 }
 
 // ─── Teams ────────────────────────────────────────────────────

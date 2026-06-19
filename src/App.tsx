@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { Toaster } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -18,6 +18,7 @@ import Guidelines from "@/pages/Guidelines";
 import AdminDashboard from "@/pages/AdminDashboard";
 import FacultyDashboard from "@/pages/FacultyDashboard";
 import Profile from "@/pages/Profile";
+import ScanRedirect from "@/pages/ScanRedirect";
 import NotFound from "@/pages/NotFound";
 
 function LoadingScreen() {
@@ -42,11 +43,22 @@ function ProtectedRoute({
   allowedRoles: string[];
 }) {
   const { role, loading } = useApp();
+  const location = useLocation();
 
   if (loading) return <LoadingScreen />;
 
   if (!role) {
-    return <Navigate to="/login" replace />;
+    // ✅ Pass the intended destination as BOTH location.state AND a ?from=
+    // query param. location.state only works for in-app navigation; the
+    // query param survives when a phone camera opens the URL in a fresh tab.
+    const fromPath = location.pathname + location.search;
+    return (
+      <Navigate
+        to={`/login?from=${encodeURIComponent(fromPath)}`}
+        state={{ from: location }}
+        replace
+      />
+    );
   }
 
   if (!allowedRoles.includes(role)) {
@@ -110,6 +122,9 @@ function AppRoutes() {
         <Route path="/teams" element={<Teams />} />
 
         <Route path="/profile" element={<Profile />} />
+
+        {/* ✅ NEW — Collection-pass QR code lands here */}
+        <Route path="/scan/:token" element={<ScanRedirect />} />
 
         {/* REQUEST ROUTES */}
         <Route
