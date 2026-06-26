@@ -265,6 +265,13 @@
     @apply w-full text-sm;
   }
 
+  /* ✅ NEW — smooth momentum scrolling for horizontally-scrollable
+     containers on touch devices (older iOS Safari in particular
+     needs this explicitly; modern browsers ignore it harmlessly) */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
   .data-table thead tr {
     @apply bg-muted/60 border-b border-border;
   }

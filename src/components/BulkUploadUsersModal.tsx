@@ -81,7 +81,7 @@ export function BulkUploadUsersModal({ onClose, onDone }: Props) {
         <div className="bg-muted/50 rounded-xl p-4 mb-4">
           <p className="text-sm font-semibold text-foreground mb-1">1. Download the template</p>
           <p className="text-xs text-muted-foreground mb-3">
-            Includes columns: enrollmentId, name, email, password, role (STUDENT/FACULTY), department, year — with example rows.
+            Includes columns: enrollmentId, name, email, password, role (STUDENT/FACULTY), department, semester — with example rows.
           </p>
           <button onClick={handleDownloadTemplate}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors">

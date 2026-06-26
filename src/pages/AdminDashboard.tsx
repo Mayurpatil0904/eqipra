@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle2, XCircle, Plus, Trash2, Pencil, Loader2, RefreshCw, UserPlus, Save, Building2, ShieldCheck, Upload, FileSpreadsheet } from "lucide-react";
+import { X, CheckCircle2, XCircle, Plus, Trash2, Pencil, Loader2, RefreshCw, UserPlus, Save, Building2, ShieldCheck, Upload, FileSpreadsheet, Folder, ChevronDown, ChevronRight, RotateCcw, Check, UserX } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UniversityManagement } from "@/components/UniversityManagement";
@@ -281,7 +281,7 @@ function AddUserModal({ onClose, onSaved, defaultRole, isSuperAdmin }: {
 }) {
   const [f, setF] = useState({
     enrollmentId: "", name: "", email: "", password: "", confirmPassword: "",
-    role: defaultRole ?? "STUDENT", department: "", year: "1st", collegeName: "Parul University",
+    role: defaultRole ?? "STUDENT", department: "", semester: "1st", collegeName: "Parul University",
   });
   // ✅ NEW — canManageAdmins checkbox for super admins creating admins
   const [canManageAdmins, setCanManageAdmins] = useState(false);
@@ -376,10 +376,10 @@ function AddUserModal({ onClose, onSaved, defaultRole, isSuperAdmin }: {
           </div>
           {f.role === "STUDENT" && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Year</label>
-              <select value={f.year} onChange={e => set("year", e.target.value)}
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Semester</label>
+              <select value={f.semester} onChange={e => set("semester", e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
-                {["1st", "2nd", "3rd", "4th"].map(y => <option key={y}>{y}</option>)}
+                {["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           )}
@@ -552,7 +552,7 @@ const TABS: { id: Tab; label: string }[] = [
 
   useEffect(() => {
     if (tab === "inventory") loadEquip();
-    else if (tab === "students") loadUsers("STUDENT");
+    else if (tab === "students") { loadStudents(); loadFolderLabels(); }
     else if (tab === "faculty") loadUsers("FACULTY");
     else if (tab === "stats") loadStats();
   }, [tab]);
@@ -574,8 +574,72 @@ const TABS: { id: Tab; label: string }[] = [
 
   const deactivateUser = async (id: string, name: string) => {
     if (!confirm(`Deactivate "${name}"? They will no longer be able to log in.`)) return;
-    try { await adminApi.deactivateUser(id); toast.success(`${name} deactivated.`); loadUsers(); }
+    try { await adminApi.deactivateUser(id); toast.success(`${name} deactivated.`); loadUsers(); loadStudents(); }
     catch (e: any) { toast.error(e.message); }
+  };
+
+  // ✅ NEW — reactivate a deactivated user (used in the Deactivated Students view)
+  const reactivateUserHandler = async (id: string, name: string, onDone?: () => void) => {
+    try {
+      await adminApi.reactivateUser(id);
+      toast.success(`${name} reactivated — they can log in again.`);
+      onDone?.();
+    } catch (e: any) { toast.error(e.message ?? "Failed to reactivate user."); }
+  };
+
+  // ✅ NEW — permanently delete a user (Students active/deactivated views + Faculty)
+  const deleteUserHandler = async (id: string, name: string, onDone?: () => void) => {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone and will remove their request history.`)) return;
+    try {
+      await adminApi.deleteUser(id);
+      toast.success(`${name} permanently deleted.`);
+      onDone?.();
+    } catch (e: any) { toast.error(e.message ?? "Failed to delete user."); }
+  };
+
+  // ✅ NEW — Students tab: active/deactivated view, folder grouping by semester
+  const [studentView, setStudentView] = useState<"active" | "deactivated">("active");
+  const [students, setStudents] = useState<any[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [folderLabels, setFolderLabels] = useState<Record<string, string>>({});
+
+  const loadStudents = async (view: "active" | "deactivated" = studentView) => {
+    setLoadingStudents(true);
+    try {
+      const data = await adminApi.users({ role: "STUDENT", isActive: view === "active" ? "true" : "false" });
+      setStudents(data);
+    } catch { }
+    finally { setLoadingStudents(false); }
+  };
+
+  const loadFolderLabels = async () => {
+    try {
+      const folders = await adminApi.listSemesterFolders();
+      const map: Record<string, string> = {};
+      folders.forEach((f: any) => { map[f.key] = f.label; });
+      setFolderLabels(map);
+    } catch { }
+  };
+
+  const renameFolder = async (key: string, label: string) => {
+    try {
+      await adminApi.upsertSemesterFolder(key, label);
+      setFolderLabels(prev => ({ ...prev, [key]: label }));
+      toast.success("Folder renamed.");
+    } catch (e: any) { toast.error(e.message ?? "Failed to rename folder."); }
+  };
+
+  const updateStudentSemester = async (id: string, semester: string) => {
+    try {
+      await adminApi.updateUser(id, { semester });
+      toast.success("Semester updated.");
+      loadStudents();
+    } catch (e: any) { toast.error(e.message ?? "Failed to update semester."); }
+  };
+
+  const changeStudentView = (view: "active" | "deactivated") => {
+    setStudentView(view);
+    loadStudents(view);
   };
 
   // Return inspection modal state
@@ -715,12 +779,19 @@ const TABS: { id: Tab; label: string }[] = [
 
         {/* Students */}
         {tab === "students" && (
-          <UsersTab users={users} loading={loadU} roleLabel="Student"
+          <StudentsTab
+            view={studentView} onChangeView={changeStudentView}
+            students={students} loading={loadingStudents}
+            folderLabels={folderLabels} onRenameFolder={renameFolder}
             onAdd={() => { setAddRole("STUDENT"); setShowAddUser(true); }}
             onBulkUpload={() => setShowBulkUploadUsers(true)}
-            onRefresh={() => loadUsers("STUDENT")} teams={teams}
+            onRefresh={() => loadStudents()} teams={teams}
             onDeactivate={deactivateUser}
-            onResetPw={(id, name) => setResetPwUser({ id, name })} />
+            onReactivate={(id: string, name: string) => reactivateUserHandler(id, name, () => loadStudents())}
+            onDelete={(id: string, name: string) => deleteUserHandler(id, name, () => loadStudents())}
+            onResetPw={(id: string, name: string) => setResetPwUser({ id, name })}
+            onUpdateSemester={updateStudentSemester}
+          />
         )}
 
         {/* Faculty */}
@@ -730,6 +801,7 @@ const TABS: { id: Tab; label: string }[] = [
             onBulkUpload={() => setShowBulkUploadUsers(true)}
             onRefresh={() => loadUsers("FACULTY")} teams={teams}
             onDeactivate={deactivateUser}
+            onDelete={(id: string, name: string) => deleteUserHandler(id, name, () => loadUsers("FACULTY"))}
             onResetPw={(id, name) => setResetPwUser({ id, name })} />
         )}
 
@@ -763,9 +835,11 @@ const TABS: { id: Tab; label: string }[] = [
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading…
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <>
+              {/* ✅ Desktop/tablet — full table, horizontally scrollable */}
+              <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="data-table">
+                  <table className="data-table min-w-[1080px]">
                     <thead>
                       <tr>
                         <th>Equipment ID</th><th>Name</th><th>Category</th><th>Dept</th><th>Location</th>
@@ -856,6 +930,85 @@ const TABS: { id: Tab; label: string }[] = [
                   </table>
                 </div>
               </div>
+
+              {/* ✅ NEW — Mobile: stacked cards instead of a horizontally-scrolling table */}
+              <div className="md:hidden space-y-3">
+                {equipment.map((h: any) => {
+                  const RowIcon = getEquipmentIcon(h.category);
+                  return (
+                    <div key={h.id} className="bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <RowIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate">{h.name}</p>
+                            <p className="text-[11px] text-muted-foreground font-mono">{h.equipmentId ?? "—"}</p>
+                          </div>
+                        </div>
+                        <StatusBadge type="availability" status={h.availabilityStatus} />
+                      </div>
+
+                      {h.visibleToStudents === false && (
+                        <span className="inline-block mb-2 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Staff only</span>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs mb-3">
+                        <div><span className="text-muted-foreground">Category: </span>{h.category}</div>
+                        <div><span className="text-muted-foreground">Dept: </span>{h.department ?? "General"}</div>
+                        <div><span className="text-muted-foreground">Location: </span>{h.labLocation}</div>
+                        <div><span className="text-muted-foreground">Supervisor: </span>{h.supervisorName}</div>
+                        <div><span className="text-muted-foreground">Qty: </span>{h.totalUnits ?? 1}</div>
+                        <div>
+                          <span className="text-muted-foreground">Available: </span>
+                          <span className={cn("font-semibold", (h.availableUnits ?? 1) === 0 ? "text-status-fault" : "text-status-available")}>
+                            {h.availableUnits ?? 1}
+                          </span>
+                        </div>
+                      </div>
+
+                      {((h.pendingUnits ?? 0) > 0 || (h.inspectionUnits ?? 0) > 0) && (
+                        <div className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2 mb-3">
+                          <div className="text-xs">
+                            {(h.pendingUnits ?? 0) > 0 && <span className="text-status-pending font-semibold block">{h.pendingUnits} on hold</span>}
+                            {(h.inspectionUnits ?? 0) > 0 && <span className="text-status-issued font-semibold block">{h.inspectionUnits} to inspect</span>}
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button onClick={() => handleClearInspection(h.slug, "pass")}
+                              className="text-[10px] px-2 py-1 rounded bg-status-available/10 text-status-available font-semibold">
+                              ✓ Pass
+                            </button>
+                            <button onClick={() => handleClearInspection(h.slug, "fail")}
+                              className="text-[10px] px-2 py-1 rounded bg-status-fault/10 text-status-fault font-semibold">
+                              ✗ Fail
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {h.conditionLog && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          <span className="font-medium">Condition: </span>{h.conditionLog}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-border/60">
+                        <button onClick={() => setEditEq(h)}
+                          className="flex-1 flex items-center justify-center gap-1 text-xs px-2 py-1.5 rounded bg-primary/10 text-primary font-medium">
+                          <Pencil className="h-3 w-3" />Edit
+                        </button>
+                        <button onClick={() => deleteEquip(h.slug, h.name)}
+                          className="flex-1 flex items-center justify-center gap-1 text-xs px-2 py-1.5 rounded bg-status-fault/10 text-status-fault font-medium">
+                          <Trash2 className="h-3 w-3" />Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {equipment.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground bg-card border border-border rounded-xl">No equipment found.</div>
+                )}
+              </div>
+              </>
             )}
           </div>
         )}
@@ -1075,8 +1228,284 @@ function StatsTab({ stats }: any) {
   );
 }
 
+// ─── Students Tab — folder-grouped by semester, with Active/Deactivated toggle ──
+const SEMESTER_ORDER = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
+
+function FolderCard({
+  folderKey, label, students, teams,
+  onRenameFolder, onDeactivate, onDelete, onResetPw, onUpdateSemester,
+}: any) {
+  const [expanded, setExpanded] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draftLabel, setDraftLabel] = useState(label);
+
+  const saveLabel = () => {
+    const trimmed = draftLabel.trim();
+    if (!trimmed) { setDraftLabel(label); setEditing(false); return; }
+    if (trimmed !== label) onRenameFolder(folderKey, trimmed);
+    setEditing(false);
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-muted/30">
+        <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+          {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+          <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+          {editing ? (
+            <input
+              autoFocus
+              value={draftLabel}
+              onChange={e => setDraftLabel(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              onKeyDown={e => { if (e.key === "Enter") saveLabel(); if (e.key === "Escape") { setDraftLabel(label); setEditing(false); } }}
+              className="text-sm font-semibold bg-background border border-border rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-0"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-foreground truncate">{label}</span>
+          )}
+          <span className="text-xs text-muted-foreground flex-shrink-0">({students.length})</span>
+        </button>
+        {editing ? (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); saveLabel(); }}
+              className="p-1.5 rounded bg-status-available/10 text-status-available hover:bg-status-available hover:text-white transition-colors">
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setDraftLabel(label); setEditing(false); }}
+              className="p-1.5 rounded bg-muted text-muted-foreground hover:bg-border transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            className="p-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+            title="Rename folder">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Department</th><th>Semester</th>
+                <th>College</th><th>Active Team</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((u: any) => {
+                const team = teams.find((t: any) =>
+                  t.active && t.members?.some((m: any) => m.id === u.enrollmentId)
+                );
+                return (
+                  <tr key={u.id}>
+                    <td className="font-mono text-xs">{u.enrollmentId}</td>
+                    <td>
+                      <div className="font-medium">{u.name}</div>
+                      {u.email && <div className="text-xs text-muted-foreground">{u.email}</div>}
+                    </td>
+                    <td className="text-muted-foreground">{u.department}</td>
+                    <td>
+                      {/* ✅ NEW — editable inline semester select */}
+                      <select
+                        value={u.semester ?? ""}
+                        onChange={e => onUpdateSemester(u.id, e.target.value)}
+                        className="text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        <option value="">—</option>
+                        {SEMESTER_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="text-xs text-muted-foreground">{u.college}</td>
+                    <td>
+                      {team
+                        ? <span className="team-id-badge text-[10px] py-0.5 px-2">{team.id}</span>
+                        : <span className="text-xs text-muted-foreground">None</span>}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => onResetPw(u.id, u.name)}
+                          className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors font-medium">
+                          Reset PWD
+                        </button>
+                        <button onClick={() => onDeactivate(u.id, u.name)}
+                          className="text-xs px-2 py-1 rounded bg-status-fault/10 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-medium">
+                          Deactivate
+                        </button>
+                        <button onClick={() => onDelete(u.id, u.name)}
+                          className="text-xs px-2 py-1 rounded bg-status-fault/15 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-medium">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {students.length === 0 && (
+                <tr><td colSpan={7} className="text-center py-6 text-muted-foreground text-sm">No students in this folder.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentsTab({
+  view, onChangeView,
+  students, loading,
+  folderLabels, onRenameFolder,
+  onAdd, onBulkUpload, onRefresh, teams,
+  onDeactivate, onReactivate, onDelete, onResetPw, onUpdateSemester,
+}: any) {
+  // Group active students into folders by semester value
+  const folders: { key: string; label: string; students: any[] }[] = [];
+  if (view === "active") {
+    const byKey: Record<string, any[]> = {};
+    for (const s of students) {
+      const key = s.semester && s.semester.trim() ? s.semester.trim() : "__unassigned__";
+      (byKey[key] ??= []).push(s);
+    }
+    const knownKeys = Object.keys(byKey).filter(k => k !== "__unassigned__");
+    knownKeys.sort((a, b) => {
+      const ai = SEMESTER_ORDER.indexOf(a);
+      const bi = SEMESTER_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    for (const key of knownKeys) {
+      folders.push({ key, label: folderLabels[key] ?? `${key} Semester`, students: byKey[key] });
+    }
+    if (byKey.__unassigned__) {
+      folders.push({ key: "__unassigned__", label: folderLabels.__unassigned__ ?? "Unassigned", students: byKey.__unassigned__ });
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground">{students.length} student{students.length === 1 ? "" : "s"}</p>
+          {/* ✅ NEW — Active / Deactivated toggle, placed beside Add Student / Bulk Upload */}
+          <div className="flex bg-muted/50 border border-border rounded-lg p-0.5">
+            <button onClick={() => onChangeView("active")}
+              className={cn("px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
+                view === "active" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              Active
+            </button>
+            <button onClick={() => onChangeView("deactivated")}
+              className={cn("flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
+                view === "deactivated" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              <UserX className="h-3 w-3" /> Deactivated
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onRefresh} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+            <RefreshCw className="h-3 w-3" />Refresh
+          </button>
+          {view === "active" && (
+            <>
+              <button onClick={onBulkUpload}
+                className="flex items-center gap-1.5 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted transition-colors">
+                <Upload className="h-3.5 w-3.5" />Bulk Upload
+              </button>
+              <button onClick={onAdd}
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                <UserPlus className="h-3.5 w-3.5" />Add Student
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading…
+        </div>
+      ) : view === "active" ? (
+        // ── Active students — grouped into editable folders by semester ──
+        folders.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground bg-card border border-border rounded-xl">
+            No active students found.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {folders.map(folder => (
+              <FolderCard
+                key={folder.key}
+                folderKey={folder.key}
+                label={folder.label}
+                students={folder.students}
+                teams={teams}
+                onRenameFolder={onRenameFolder}
+                onDeactivate={onDeactivate}
+                onDelete={onDelete}
+                onResetPw={onResetPw}
+                onUpdateSemester={onUpdateSemester}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        // ── Deactivated students — flat list, reactivate or permanently delete ──
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Name</th><th>Department</th><th>Semester</th>
+                  <th>College</th><th>Deactivated</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((u: any) => (
+                  <tr key={u.id}>
+                    <td className="font-mono text-xs">{u.enrollmentId}</td>
+                    <td>
+                      <div className="font-medium">{u.name}</div>
+                      {u.email && <div className="text-xs text-muted-foreground">{u.email}</div>}
+                    </td>
+                    <td className="text-muted-foreground">{u.department}</td>
+                    <td className="text-muted-foreground text-xs">{u.semester ?? "—"}</td>
+                    <td className="text-xs text-muted-foreground">{u.college}</td>
+                    <td className="text-xs text-muted-foreground">
+                      {u.updatedAt ? formatDate(u.updatedAt) : "—"}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => onReactivate(u.id, u.name)}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-status-available/10 text-status-available hover:bg-status-available hover:text-white transition-colors font-medium">
+                          <RotateCcw className="h-3 w-3" />Reactivate
+                        </button>
+                        <button onClick={() => onDelete(u.id, u.name)}
+                          className="text-xs px-2 py-1 rounded bg-status-fault/15 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-medium">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {students.length === 0 && (
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No deactivated students.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Users Tab ────────────────────────────────────────────────
-function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, teams, onDeactivate, onResetPw }: any) {
+function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, teams, onDeactivate, onDelete, onResetPw }: any) {
   const isStudent = roleLabel === "Student";
   return (
     <div>
@@ -1107,7 +1536,7 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
               <thead>
                 <tr>
                   <th>ID</th><th>Name</th><th>Department</th>
-                  {isStudent && <th>Year</th>}
+                  {isStudent && <th>Semester</th>}
                   <th>College</th>
                   {isStudent && <th>Active Team</th>}
                   <th>Actions</th>
@@ -1134,7 +1563,7 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
                         {u.email && <div className="text-xs text-muted-foreground">{u.email}</div>}
                       </td>
                       <td className="text-muted-foreground">{u.department}</td>
-                      {isStudent && <td>{u.year ?? "—"}</td>}
+                      {isStudent && <td>{u.semester ?? "—"}</td>}
                       <td className="text-xs text-muted-foreground">{u.college}</td>
                       {isStudent && (
                         <td>
@@ -1153,6 +1582,13 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
                             className="text-xs px-2 py-1 rounded bg-status-fault/10 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-medium">
                             Deactivate
                           </button>
+                          {/* ✅ NEW — permanent delete, beside Deactivate */}
+                          {onDelete && (
+                            <button onClick={() => onDelete(u.id, u.name)}
+                              className="text-xs px-2 py-1 rounded bg-status-fault/15 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-medium">
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

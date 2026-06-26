@@ -210,7 +210,7 @@ export const notificationsApi = {
 // ── Admin ─────────────────────────────────────────────────────
 export const adminApi = {
   stats:             ()                         => get<any>("/admin/stats"),
-  users:             (p?: { role?: string; q?: string }) => {
+  users:             (p?: { role?: string; q?: string; isActive?: string }) => {
     const qs = p ? "?" + new URLSearchParams(p as any).toString() : "";
     return get<any[]>(`/admin/users${qs}`);
   },
@@ -218,6 +218,9 @@ export const adminApi = {
   createUser:        (d: any)                   => post<any>("/admin/users", d),
   updateUser:        (id: string, d: any)       => patch<any>(`/admin/users/${id}`, d),
   deactivateUser:    (id: string)               => patch<any>(`/admin/users/${id}/deactivate`),
+  // ✅ NEW — reactivate a deactivated user, or permanently delete one
+  reactivateUser:    (id: string)               => patch<any>(`/admin/users/${id}/reactivate`),
+  deleteUser:        (id: string)               => del<any>(`/admin/users/${id}`),
   resetUserPassword: (id: string, newPassword: string) =>
     patch<any>(`/admin/users/${id}/reset-password`, { newPassword }),
   colleges:          ()                         => get<any[]>("/admin/colleges"),
@@ -246,6 +249,11 @@ export const adminApi = {
   },
   downloadUserTemplate: () =>
     downloadFile("/admin/users/bulk-upload-template", "equipra-users-template.xlsx"),
+
+  // ✅ NEW — editable semester folder labels (Students tab grouping)
+  listSemesterFolders:  ()                          => get<any[]>("/admin/semester-folders"),
+  upsertSemesterFolder: (key: string, label: string) =>
+    put<any>(`/admin/semester-folders/${encodeURIComponent(key)}`, { label }),
 };
 
 // ── Professors ────────────────────────────────────────────────
