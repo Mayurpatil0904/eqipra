@@ -791,6 +791,7 @@ const TABS: { id: Tab; label: string }[] = [
             onDelete={(id: string, name: string) => deleteUserHandler(id, name, () => loadStudents())}
             onResetPw={(id: string, name: string) => setResetPwUser({ id, name })}
             onUpdateSemester={updateStudentSemester}
+            onBulkAction={async (ids: string[], action: string) => { await adminApi.bulkUserAction(ids, action as any); toast.success("Done"); loadStudents(); }}
           />
         )}
 
@@ -802,7 +803,8 @@ const TABS: { id: Tab; label: string }[] = [
             onRefresh={() => loadUsers("FACULTY")} teams={teams}
             onDeactivate={deactivateUser}
             onDelete={(id: string, name: string) => deleteUserHandler(id, name, () => loadUsers("FACULTY"))}
-            onResetPw={(id, name) => setResetPwUser({ id, name })} />
+            onResetPw={(id, name) => setResetPwUser({ id, name })}
+            onBulkAction={async (ids: string[], action: string) => { await adminApi.bulkUserAction(ids, action as any); toast.success("Done"); loadUsers("FACULTY"); }} />
         )}
 
         {/* Inventory */}
@@ -1234,10 +1236,12 @@ const SEMESTER_ORDER = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
 function FolderCard({
   folderKey, label, students, teams,
   onRenameFolder, onDeactivate, onDelete, onResetPw, onUpdateSemester,
+  selectedIds, onToggleSelect, onToggleAll,
 }: any) {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draftLabel, setDraftLabel] = useState(label);
+  const allSelected = students.length > 0 && students.every((s: any) => selectedIds.has(s.id));
 
   const saveLabel = () => {
     const trimmed = draftLabel.trim();
@@ -1291,6 +1295,7 @@ function FolderCard({
           <table className="data-table">
             <thead>
               <tr>
+                <th className="w-8"><input type="checkbox" checked={allSelected} onChange={() => onToggleAll(students.map((s: any) => s.id))} className="accent-primary" /></th>
                 <th>ID</th><th>Name</th><th>Department</th><th>Semester</th>
                 <th>College</th><th>Active Team</th><th>Actions</th>
               </tr>
@@ -1301,7 +1306,8 @@ function FolderCard({
                   t.active && t.members?.some((m: any) => m.id === u.enrollmentId)
                 );
                 return (
-                  <tr key={u.id}>
+                  <tr key={u.id} className={selectedIds.has(u.id) ? "bg-primary/5" : ""}>
+                    <td><input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => onToggleSelect(u.id)} className="accent-primary" /></td>
                     <td className="font-mono text-xs">{u.enrollmentId}</td>
                     <td>
                       <div className="font-medium">{u.name}</div>
@@ -1345,7 +1351,7 @@ function FolderCard({
                 );
               })}
               {students.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-6 text-muted-foreground text-sm">No students in this folder.</td></tr>
+                <tr><td colSpan={8} className="text-center py-6 text-muted-foreground text-sm">No students in this folder.</td></tr>
               )}
             </tbody>
           </table>
@@ -1361,7 +1367,18 @@ function StudentsTab({
   folderLabels, onRenameFolder,
   onAdd, onBulkUpload, onRefresh, teams,
   onDeactivate, onReactivate, onDelete, onResetPw, onUpdateSemester,
+  onBulkAction,
 }: any) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleAll = (ids: string[]) => {
+    const allIn = ids.every(id => selectedIds.has(id));
+    setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => allIn ? n.delete(id) : n.add(id)); return n; });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+  const doBulk = async (action: string) => { await onBulkAction(Array.from(selectedIds), action); clearSel(); };
   // Group active students into folders by semester value
   const folders: { key: string; label: string; students: any[] }[] = [];
   if (view === "active") {
@@ -1394,12 +1411,12 @@ function StudentsTab({
           <p className="text-sm text-muted-foreground">{students.length} student{students.length === 1 ? "" : "s"}</p>
           {/* ✅ NEW — Active / Deactivated toggle, placed beside Add Student / Bulk Upload */}
           <div className="flex bg-muted/50 border border-border rounded-lg p-0.5">
-            <button onClick={() => onChangeView("active")}
+            <button onClick={() => { onChangeView("active"); clearSel(); }}
               className={cn("px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
                 view === "active" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
               Active
             </button>
-            <button onClick={() => onChangeView("deactivated")}
+            <button onClick={() => { onChangeView("deactivated"); clearSel(); }}
               className={cn("flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
                 view === "deactivated" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
               <UserX className="h-3 w-3" /> Deactivated
@@ -1425,6 +1442,29 @@ function StudentsTab({
         </div>
       </div>
 
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-50 mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 backdrop-blur-sm px-4 py-2.5 animate-fade-in">
+          <span className="text-sm font-semibold text-foreground">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            {view === "active" && (
+              <button onClick={() => doBulk("deactivate")} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-colors font-semibold">
+                <UserX className="h-3 w-3" />Deactivate
+              </button>
+            )}
+            {view === "deactivated" && (
+              <button onClick={() => doBulk("reactivate")} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-status-available/10 text-status-available hover:bg-status-available hover:text-white transition-colors font-semibold">
+                <RotateCcw className="h-3 w-3" />Reactivate
+              </button>
+            )}
+            <button onClick={() => doBulk("delete")} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-status-fault/10 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-semibold">
+              <Trash2 className="h-3 w-3" />Delete
+            </button>
+            <button onClick={clearSel} className="text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-border transition-colors font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading…
@@ -1449,6 +1489,9 @@ function StudentsTab({
                 onDelete={onDelete}
                 onResetPw={onResetPw}
                 onUpdateSemester={onUpdateSemester}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleAll={toggleAll}
               />
             ))}
           </div>
@@ -1460,13 +1503,15 @@ function StudentsTab({
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-8"><input type="checkbox" checked={students.length > 0 && students.every((s: any) => selectedIds.has(s.id))} onChange={() => toggleAll(students.map((s: any) => s.id))} className="accent-primary" /></th>
                   <th>ID</th><th>Name</th><th>Department</th><th>Semester</th>
                   <th>College</th><th>Deactivated</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {students.map((u: any) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} className={selectedIds.has(u.id) ? "bg-primary/5" : ""}>
+                    <td><input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)} className="accent-primary" /></td>
                     <td className="font-mono text-xs">{u.enrollmentId}</td>
                     <td>
                       <div className="font-medium">{u.name}</div>
@@ -1493,7 +1538,7 @@ function StudentsTab({
                   </tr>
                 ))}
                 {students.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No deactivated students.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No deactivated students.</td></tr>
                 )}
               </tbody>
             </table>
@@ -1505,8 +1550,14 @@ function StudentsTab({
 }
 
 // ─── Users Tab ────────────────────────────────────────────────
-function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, teams, onDeactivate, onDelete, onResetPw }: any) {
+function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, teams, onDeactivate, onDelete, onResetPw, onBulkAction }: any) {
   const isStudent = roleLabel === "Student";
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => { setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
+  const toggleAllFac = () => { const allIn = users.every((u: any) => selectedIds.has(u.id)); setSelectedIds(allIn ? new Set() : new Set(users.map((u: any) => u.id))); };
+  const clearSel = () => setSelectedIds(new Set());
+  const doBulk = async (action: string) => { await onBulkAction(Array.from(selectedIds), action); clearSel(); };
+  const allSelected = users.length > 0 && users.every((u: any) => selectedIds.has(u.id));
   return (
     <div>
       <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
@@ -1525,6 +1576,21 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
           </button>
         </div>
       </div>
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-50 mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 backdrop-blur-sm px-4 py-2.5 animate-fade-in">
+          <span className="text-sm font-semibold text-foreground">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => doBulk("deactivate")} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-colors font-semibold">
+              <UserX className="h-3 w-3" />Deactivate
+            </button>
+            <button onClick={() => doBulk("delete")} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-status-fault/10 text-status-fault hover:bg-status-fault hover:text-white transition-colors font-semibold">
+              <Trash2 className="h-3 w-3" />Delete
+            </button>
+            <button onClick={clearSel} className="text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-border transition-colors font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading…
@@ -1535,6 +1601,7 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-8"><input type="checkbox" checked={allSelected} onChange={toggleAllFac} className="accent-primary" /></th>
                   <th>ID</th><th>Name</th><th>Department</th>
                   {isStudent && <th>Semester</th>}
                   <th>College</th>
@@ -1548,7 +1615,8 @@ function UsersTab({ users, loading, roleLabel, onAdd, onBulkUpload, onRefresh, t
                     t.active && t.members?.some((m: any) => m.id === u.enrollmentId)
                   );
                   return (
-                    <tr key={u.id}>
+                    <tr key={u.id} className={selectedIds.has(u.id) ? "bg-primary/5" : ""}>
+                      <td><input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)} className="accent-primary" /></td>
                       <td className="font-mono text-xs">{u.enrollmentId}</td>
                       <td>
                         <div className="font-medium flex items-center gap-1.5">

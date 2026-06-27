@@ -254,6 +254,12 @@ export const adminApi = {
   listSemesterFolders:  ()                          => get<any[]>("/admin/semester-folders"),
   upsertSemesterFolder: (key: string, label: string) =>
     put<any>(`/admin/semester-folders/${encodeURIComponent(key)}`, { label }),
+
+  // ✅ NEW — bulk actions for multi-select
+  bulkUserAction: (ids: string[], action: "deactivate" | "reactivate" | "delete") =>
+    post<any>("/admin/users/bulk-action", { ids, action }),
+  bulkEquipmentAction: (ids: string[], action: "deactivate" | "activate" | "delete") =>
+    post<any>("/admin/equipment/bulk-action", { ids, action }),
 };
 
 // ── Professors ────────────────────────────────────────────────
